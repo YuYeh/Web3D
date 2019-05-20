@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+<style>
+	#container {
+		width: 50vw;
+		height: 70vh;
+		float: left;
+		margin: 10px;
+	}
+	#monitor {
+		display: inline-block;
+		width: 25vw;
+		height: 35vh;
+		margin: 10px;
+		
+	}
+	#monitor1 {	
+		display: inline-block;
+		width: 45%;
+		height: 95%;
+
+		background-color: yellow;
+	}
+	#monitor2 {
+		display: inline-block;
+		width: 45%;
+		height: 95%;
+		background-color: yellow;
+	}
+	#monitor3 {
+		display: inline-block;
+		width: 45%;
+		height: 95%;
+		background-color: yellow;
+	}
+	#monitor4 {
+		display: inline-block;
+		width: 45%;
+		height: 95%;
+		background-color: yellow;
+	}
+	#info {
+	  position: absolute;
+	  top: 2%;
+	  width: 100%;
+	  padding: 10px;
+	  text-align: center;
+	  color: #ffff00
+	}
+	p {
+		margin: 10px;
+		text-align: justify;
+	}	
+</style>
+</head>
+<body>
+	<h1 style="font-size:2em; text-align:center; margin:15px">Harry Potter </h1><hr> <!-- Gallery -->
+	<div id="container"></div>
+	<div style="text-align:center;">Please select:
+	<select id="painting">
+		<option value="0" selected>哈利·詹姆·波特(Harry James Potter)</option>
+		<option value="1" >榮恩·衛斯理(Ron Weasley)</option>
+		<option value="2" >金妮·衛斯理(Ginny Weasley)</option>
+		<option value="3" >阿不思·鄧不利多(Albus Dumbledore)</option>
+		<option value="4" >佛地魔王(Lord Voldemort)</option>
+		<option value="5" >妙麗·格蘭傑(Hermione Granger)</option>
+	</select><br></div>
+	<img src='images/Gallery floor plan2.jpg' usemap="#lightSwitch" style="width:400px;height:240px;display:block;margin:auto;">
+	<map name ="lightSwitch">
+		<area shape="circle" class='light' id='m1' coords="131,81,12" href="#">
+		<area shape="circle" class='light' id='m2' coords="281,150,12" href="#">
+		<area shape="circle" class='light' id='m3' coords="311,150,12" href="#">
+		<area shape="circle" class='light' id='m4' coords="91,81,12" href="#">
+	</map>
+	<div id = "monitor">
+		<div style="width:100%;height:50%;">
+			<div id="monitor1"></div>
+			<div id="monitor2"></div>
+		</div >
+		<div style="width:100%;height:50%;">
+			<div id="monitor3"></div>
+			<div id="monitor4"></div>
+		</div>
+	</div>
+	<div style="display:inline-block;vertical-align:top;margin: 10px;"> 
+            <div id = "view" style="background-color: black;width: 18vw;height: 25vh;"></div>
+			<div style="text-align: center;margin-top: 12.5px;">
+				<div id="zoomOut" style="display: inline-block;width: 0px;height: 0px;border-style: solid;border-width: 15px 26px 15px 0;border-color: transparent purple transparent transparent;margin-right: 10px;cursor:pointer;"></div>
+				<div id="toggle" style="display: inline-block;vertical-align:top;width: 60px;height: 30px;border:2px solid black;font-size: 18px;"><p id = 'panning' style="margin-top:4px;cursor:pointer;">zoom</p></div>
+				<div id="zoomIn" style="display: inline-block;width: 0px;height: 0px;border-style: solid;border-width: 15px 0 15px 26px;border-color: transparent transparent transparent purple;margin-left: 10px;cursor:pointer;"></div>
+			</div>
+    </div>
+	<p id="words" style="margin: 10px;text-align: justify;font-family:Microsoft JhengHei;text-indent:2em "></p>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/102/three.min.js"></script>
+	<script src="https://threejs.org/examples/js/controls/OrbitControls.js"></script>
+	<script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+<script>
+class Light {
+  constructor() {
+    this.name = 'light';
+    this.isOn = true;
+    this.mesh = this.lightInit();
+  }
+
+  lightInit() {   
+    ////////////////////燈罩////////////////////
+    let lampshadeTexture = loader.load( "images/paperBlue.jpg");
+    let lampshadeMtl = new THREE.MeshPhongMaterial({map: lampshadeTexture,side:THREE.DoubleSide}); 	
+    let lampshade = new THREE.Mesh(new THREE.CylinderGeometry(10,15,18,64,64,true),lampshadeMtl);
+    lampshade.rotation.x = -Math.PI/2;
+
+    ////////////////////燈泡&光線////////////////////
+    this.light = new THREE.SpotLight(0xffffff,1.2);
+    this.light.angle = 0.45;
+    this.light.penumbra = 0.3;
+    this.light.decay = 1;
+    this.light.distance = 400;
+    this.lightHelper = new THREE.SpotLightHelper(this.light);
+    let lightBulb = new THREE.Mesh(new THREE.SphereGeometry(8,32,32),new THREE.MeshPhongMaterial());
+
+    ////////////////////陰影////////////////////
+    this.light.castShadow = true;
+    this.light.shadow.mapSize.width = 1024;
+    this.light.shadow.mapSize.height = 1024;
+    this.light.shadow.camera.near = 50;
+    this.light.shadow.camera.far = 1000;
+    this.light.shadow.camera.fov = 20;
+    lampshade.castShadow = true;
+    lampshade.receiveShadow = true;
+    lightBulb.castShadow = true;
+    lightBulb.receiveShadow = true;
+
+    ////////////////////包起來////////////////////
+    let obj = new THREE.Object3D();
+    lampshade.add(lightBulb,this.light);
+    obj.add(lampshade);
+    return obj; 
+  }
+
+  positionSet(x, y, z) {
+    this.mesh.position.set(x, y, z);
+  }
+  
+  getPosition() {
+	return this.mesh.position;
+  }
+  
+  lookAt(point) {
+    this.light.target = point;
+    this.mesh.lookAt(point.position);
+  }
+
+  switch() {
+    this.light.intensity = this.isOn ? 1 : 0;
+  }
+
+  lightLelper() {
+    return this.lightHelper;
+  }
+}
+
+var camera, scene, renderer,renderer2,renderer3,renderer4,renderer5,renderer7;
+var loader = new THREE.TextureLoader();
+var floor, lights = [], dLights = [], isOn = true;
+var monitors = [], sCams = [],cameraobjs = [];
+var angle = 0, sign = 1,type = 1, tmp=0, tmp2=0;
+var directionalLight;
+var T = 12;
+var clock = new THREE.Clock();
+var ts = clock.getElapsedTime();
+var keys = [
+  [0, -0.9], [0.4, 1.4], [0.5, 1.4], [0.9, -0.9], [1, -0.9]
+];
+var id = 0, points = [],change = false, tmp =false, alpha = 0;
+var pos1, pos2, quat1,quat2;
+
+var mouse = new THREE.Vector2();
+var raycaster = new THREE.Raycaster();
+var pickables = [];
+
+init();
+animate();
+$('.light').click(function(e) {
+
+  e.preventDefault();
+  
+  switch(this.id) {
+	case 'm1':
+		id = 0;
+		break;
+	case 'm2':
+		id = 1;
+		break;
+	case 'm3':
+		id = 2;
+		break;
+	case 'm4':
+		id = 3;
+  };
+});
+
+$('#zoomOut').click(function() {
+	if(sCams[id].camera.fov < 80)
+		sCams[id].camera.fov += 5;
+	sCams[id].camera.updateProjectionMatrix();
+});
+
+$('#zoomIn').click(function() {
+	if(sCams[id].camera.fov > 30)
+		sCams[id].camera.fov -= 5;
+	sCams[id].camera.updateProjectionMatrix();
+});
+
+$('#toggle').click(function() {
+	sCams[id].isOn = !sCams[id].isOn;
+});
+
+$('#painting').change( function() {
+	pos1.copy(camera.position);
+	pos2.set(0,600,0);
+	tmp = change = true;
+});
+
+function buildChair() {
+	////////////////////坐墊////////////////////
+	loader.setCrossOrigin ('');
+	let  ChairBaseTexture = loader.load( "images/white.png");
+  ChairBaseTexture.wrapS = THREE.RepeatWrapping;
+  ChairBaseTexture.wrapT = THREE.RepeatWrapping;
+  ChairBaseTexture.repeat.set(4, 2);
+  let  ChairBaseMtl = new THREE.MeshPhongMaterial({map: ChairBaseTexture});
+	let  chairBase = new THREE.Mesh(new THREE.BoxGeometry(200, 10, 100),ChairBaseMtl);
+  
+  ////////////////////桌腳////////////////////
+  let  footTexture = loader.load( "images/wood.jpg");
+  footTexture.wrapS = THREE.RepeatWrapping;
+  footTexture.wrapT = THREE.RepeatWrapping;
+  footTexture.repeat.set(5, 12);
+  let  footMtl = new THREE.MeshPhongMaterial({map: footTexture});
+	let  foot1 = new THREE.Mesh(new THREE.BoxGeometry(20, 50, 100),footMtl);
+  foot1.position.set(90,-30, 0);
+  chairBase.add(foot1);
+  let foot2 = foot1.clone();
+  foot2.position.x = -90;
+  chairBase.add(foot2);
+  chairBase.position.set(-150,55.5,150);
+  
+  ////////////////////陰影////////////////////
+  chairBase.traverse (
+    function (mesh) {
+      if (mesh instanceof THREE.Mesh) {
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+      }
+    }
+  );
+  scene.add(chairBase);
+  
+  let chairBase2 = chairBase.clone();
+  chairBase2.position.x = 150;
+  scene.add(chairBase2);
+  
+}
+
+function buildGallery() {
+  loader.setCrossOrigin ('');
+  let floorTexture = loader.load( "images/floor.jpg");
+  floorTexture.wrapS = THREE.RepeatWrapping;
+  floorTexture.wrapT = THREE.RepeatWrapping;
+  floorTexture.repeat.set(15, 9);
+  let floorMtl = new THREE.MeshPhongMaterial({map: floorTexture,side:THREE.DoubleSide});
+  //let floorMtl = new THREE.MeshBasicMaterial({map: floorTexture,side:THREE.DoubleSide});
+  floor = new THREE.Mesh(new THREE.PlaneGeometry(1520, 900),floorMtl);
+  floor.rotation.x = -Math.PI/2;
+
+  floor.receiveShadow = true;
+  scene.add(floor);
+  ////////////////////外牆//////////////////// 
+  let wallTexture = loader.load( "images/wall.jpg");
+  wallTexture.wrapS = THREE.RepeatWrapping;
+  wallTexture.wrapT = THREE.RepeatWrapping;
+  wallTexture.repeat.set(15, 5);
+  let wallMtl = new THREE.MeshPhongMaterial({map:wallTexture});
+  //let wallMtl = new THREE.MeshBasicMaterial({map:wallTexture});
+  let wallL = new THREE.Mesh(new THREE.BoxGeometry(10, 300, 920),wallMtl);
+  wallL.position.set(765, 150.5, 0);
+  wallL.receiveShadow = true;
+  scene.add(wallL);
+  let wallR = wallL.clone();
+  wallR.position.x = -765;
+  wallR.receiveShadow = true;
+  scene.add(wallR);  
+  let wallF = new THREE.Mesh(new THREE.BoxGeometry(1400, 300, 10),wallMtl);
+  wallF.position.set(-60, 150.5, 455);
+  wallF.receiveShadow = true;
+  scene.add(wallF);
+  let wallB = wallF.clone();
+  wallB.position.set(60, 150.5, -455);
+  wallB.receiveShadow = true;
+  scene.add(wallB);
+
+  ////////////////////內牆////////////////////
+  let wall1 = new THREE.Mesh(new THREE.BoxGeometry(10, 300, 300),wallMtl);
+  wall1.position.set(-455, 150.5, -300);
+  wall1.receiveShadow = true;
+  scene.add(wall1);
+  let wall2 = wall1.clone();
+  wall2.position.x = 455;
+  wall2.receiveShadow = true;
+  scene.add(wall2);
+  let wall3 = wall2.clone();
+  wall3.position.z = 300;
+  wall3.receiveShadow = true;
+  scene.add(wall3);
+  let wall4 = wall3.clone();
+  wall4.position.x = -455;
+  wall4.receiveShadow = true;
+  scene.add(wall4);
+  let wall5 = new THREE.Mesh(new THREE.BoxGeometry(590,300,10),wallMtl);
+  wall5.position.set(155,150.5, -155);
+  wall5.receiveShadow = true;
+  scene.add(wall5);
+
+  ////////////////////天花板////////////////////
+  let ceiling = new THREE.Mesh(new THREE.PlaneGeometry(1520, 900), new THREE.MeshPhongMaterial({
+    side: THREE.DoubleSide,
+    transparent: true,
+    opacity: 0.2
+  }));
+  ceiling.rotation.x = Math.PI / 2;
+  ceiling.position.y = 300;
+  scene.add(ceiling);
+
+}
+
+function buildLights() {
+  /////////////////照畫作的燈/////////////////
+  points.push(new THREE.Mesh (new THREE.SphereGeometry(10,32,32), new THREE.MeshBasicMaterial({color:'red'})));
+  points[points.length-1].material.visible = false;
+  points[points.length-1].position.set (605,200, -455); 
+  scene.add (points[points.length-1]);
+  lights.push(new Light());
+  lights[lights.length-1].positionSet(605,280,-255); 
+  lights[lights.length-1].lookAt(points[points.length-1]);
+  scene.add(lights[lights.length-1].mesh);
+
+  points.push(new THREE.Mesh (new THREE.SphereGeometry(10,32,32), new THREE.MeshBasicMaterial({color:'red'})));
+  points[points.length-1].material.visible = false;
+  points[points.length-1].position.set (455,200, -300); 
+  scene.add (points[points.length-1]);
+  lights.push(new Light());
+  lights[lights.length-1].positionSet(255,280,-300); 
+  lights[lights.length-1].lookAt(points[points.length-1]);
+  scene.add(lights[lights.length-1].mesh);
+
+  points.push(new THREE.Mesh (new THREE.SphereGeometry(10,32,32), new THREE.MeshBasicMaterial({color:'red'})));
+  points[points.length-1].material.visible = false;
+  points[points.length-1].position.set (-455,200, -300); 
+  scene.add (points[points.length-1]);
+  lights.push(new Light());
+  lights[lights.length-1].positionSet(-255,280,-300); 
+  lights[lights.length-1].lookAt(points[points.length-1]);
+  scene.add(lights[lights.length-1].mesh);
+
+  points.push(new THREE.Mesh (new THREE.SphereGeometry(10,32,32), new THREE.MeshBasicMaterial({color:'red'})));
+  points[points.length-1].material.visible = false;
+  points[points.length-1].position.set (-455,200, 300); 
+  scene.add (points[points.length-1]);
+  lights.push(new Light());
+  lights[lights.length-1].positionSet(-255,280,300); 
+  lights[lights.length-1].lookAt(points[points.length-1]);
+  scene.add(lights[lights.length-1].mesh);
+
+  points.push(new THREE.Mesh (new THREE.SphereGeometry(10,32,32), new THREE.MeshBasicMaterial({color:'red'})));
+  points[points.length-1].material.visible = false;
+  points[points.length-1].position.set (455,200, 300); 
+  scene.add (points[points.length-1]);
+  lights.push(new Light());
+  lights[lights.length-1].positionSet(255,280,300); 
+  lights[lights.length-1].lookAt(points[points.length-1]);
+  scene.add(lights[lights.length-1].mesh);
+
+  points.push(new THREE.Mesh (new THREE.SphereGeometry(10,32,32), new THREE.MeshBasicMaterial({color:'red'})));
+  points[points.length-1].material.visible = false;
+  points[points.length-1].position.set (-605,200, 455); 
+  scene.add (points[points.length-1]);
+  lights.push(new Light());
+  lights[lights.length-1].positionSet(-605,280,255); 
+  lights[lights.length-1].lookAt(points[points.length-1]);
+  scene.add(lights[lights.length-1].mesh);
+
+  /////////////////天花板大燈/////////////////
+  dLights.push(new THREE.DirectionalLight(0x888888));
+  dLights[dLights.length-1].position.y = 900;
+  dLights[dLights.length-1].castShadow = true;
+  scene.add(dLights[dLights.length-1])
+  
+  dLights.push(dLights[dLights.length-1].clone());
+  dLights[dLights.length-1].position.x = 900;
+  scene.add(dLights[dLights.length-1])
+  
+  dLights.push(dLights[dLights.length-1].clone());
+  dLights[dLights.length-1].position.x = -900;
+  scene.add(dLights[dLights.length-1])
+  
+  dLights.push(dLights[0].clone());
+  dLights[dLights.length-1].position.z = -1500;
+  scene.add(dLights[dLights.length-1])
+  dLights.push(dLights[dLights.length-1].clone());
+  dLights[dLights.length-1].position.z = 1500;
+  scene.add(dLights[dLights.length-1])
+}
+
+function buildMonitor() {
+  ////////////////////監視器1號////////////////////
+  renderer2 = new THREE.WebGLRenderer({antialias: true});
+  renderer2.setSize($('#monitor1').innerWidth(), $('#monitor1').innerHeight());
+  renderer2.setClearColor(0x888888);
+  renderer2.shadowMap.enabled = true;
+  renderer2.shadowMap.type = THREE.PCFSoftShadowMap;
+  $('#monitor1').append(renderer2.domElement);
+  
+  sCams.push({camera:new THREE.PerspectiveCamera(50, $('#monitor1').innerWidth() / $('#monitor1').innerHeight(), 1, 10000),isOn:true,time:ts});
+  cameraobjs.push(new THREE.Object3D());
+  //cameraobjs[cameraobjs.length-1].add (new THREE.AxisHelper (40))
+  let mointorTexture = loader.load( "images/metalBlack.jpg");
+  let mointorMtl = new THREE.MeshPhongMaterial({map: mointorTexture});
+  let cameraBody = new THREE.Mesh (new THREE.BoxGeometry (20,12,5), mointorMtl);
+  let lens = new THREE.Mesh (new THREE.CylinderGeometry (5,5,10), mointorMtl);
+  lens.position.z = -5;
+  lens.rotation.x = Math.PI/2;
+  cameraobjs[cameraobjs.length-1].add (cameraBody, lens);
+  
+  cameraBody.castShadow = true;
+  cameraBody.receiveShadow = true;
+  lens.castShadow = true;
+  lens.receiveShadow = true;
+  
+  monitors.push(new THREE.Object3D());
+  monitors[monitors.length-1].add (cameraobjs[cameraobjs.length-1]);
+  monitors[monitors.length-1].position.set (-430, 280, -150);
+  scene.add (monitors[monitors.length-1]);
+
+  cameraobjs[cameraobjs.length-1].rotation.y = -3*Math.PI/4; 
+  cameraobjs[cameraobjs.length-1].rotation.x = -Math.PI/8 ;
+  cameraobjs[cameraobjs.length-1].rotation.order = 'YXZ';
+
+  ////////////////////監視器2號////////////////////
+  renderer3 = new THREE.WebGLRenderer({antialias: true});
+  renderer3.setSize($('#monitor2').innerWidth(), $('#monitor2').innerHeight());
+  renderer3.setClearColor(0x888888);
+  renderer3.shadowMap.enabled = true;
+  renderer3.shadowMap.type = THREE.PCFSoftShadowMap;
+  $('#monitor2').append(renderer3.domElement);
+  
+  sCams.push({camera:new THREE.PerspectiveCamera(50, $('#monitor2').innerWidth() / $('#monitor2').innerHeight(), 1, 10000),isOn:true,time:ts});
+  cameraobjs.push(new THREE.Object3D());
+  
+  cameraobjs[cameraobjs.length-1].add (cameraBody.clone(), lens.clone());
+
+  monitors.push(new THREE.Object3D());
+  monitors[monitors.length-1].add (cameraobjs[cameraobjs.length-1]);
+  monitors[monitors.length-1].position.set (430, 280, 150);
+  scene.add (monitors[monitors.length-1]);
+
+  cameraobjs[cameraobjs.length-1].rotation.y = Math.PI/4; 
+  cameraobjs[cameraobjs.length-1].rotation.x = -Math.PI/8 ;
+  cameraobjs[cameraobjs.length-1].rotation.order = 'YXZ'
+  
+  ////////////////////監視器3號////////////////////
+  renderer4 = new THREE.WebGLRenderer({antialias: true});
+  renderer4.setSize($('#monitor3').innerWidth(), $('#monitor3').innerHeight());
+  renderer4.setClearColor(0x888888);
+  renderer4.shadowMap.enabled = true;
+  renderer4.shadowMap.type = THREE.PCFSoftShadowMap;
+  $('#monitor3').append(renderer4.domElement);
+  
+  sCams.push({camera:new THREE.PerspectiveCamera(50, $('#monitor3').innerWidth() / $('#monitor3').innerHeight(), 1, 10000),isOn:true,time:ts});
+  cameraobjs.push(new THREE.Object3D());
+  
+  cameraobjs[cameraobjs.length-1].add (cameraBody.clone(), lens.clone());
+
+  monitors.push(new THREE.Object3D());
+  monitors[monitors.length-1].add (cameraobjs[cameraobjs.length-1]);
+  monitors[monitors.length-1].position.set (485, 280, 150);
+  scene.add (monitors[monitors.length-1]);
+
+  cameraobjs[cameraobjs.length-1].rotation.y = -Math.PI/2; 
+  cameraobjs[cameraobjs.length-1].rotation.x = -Math.PI/8 ;
+  cameraobjs[cameraobjs.length-1].rotation.order = 'YXZ'
+  
+  ////////////////////監視器4號////////////////////
+  renderer5 = new THREE.WebGLRenderer({antialias: true});
+  renderer5.setSize($('#monitor4').innerWidth(), $('#monitor4').innerHeight());
+  renderer5.setClearColor(0x888888);
+  renderer5.shadowMap.enabled = true;
+  renderer5.shadowMap.type = THREE.PCFSoftShadowMap;
+  $('#monitor4').append(renderer5.domElement);
+  
+  sCams.push({camera:new THREE.PerspectiveCamera(50, $('#monitor4').innerWidth() / $('#monitor4').innerHeight(), 1, 10000),isOn:true,time:ts});
+  cameraobjs.push(new THREE.Object3D());
+  
+  cameraobjs[cameraobjs.length-1].add (cameraBody.clone(), lens.clone());
+
+  monitors.push(new THREE.Object3D());
+  monitors[monitors.length-1].add (cameraobjs[cameraobjs.length-1]);
+  monitors[monitors.length-1].position.set (-485, 280, -150);
+  scene.add (monitors[monitors.length-1]);
+
+  cameraobjs[cameraobjs.length-1].rotation.y = Math.PI/2; 
+  cameraobjs[cameraobjs.length-1].rotation.x = -Math.PI/8 ;
+  cameraobjs[cameraobjs.length-1].rotation.order = 'YXZ'
+  
+  ////////////////////主控台////////////////////
+  renderer7 = new THREE.WebGLRenderer({antialias: true});
+  renderer7.setSize($('#view').innerWidth(), $('#view').innerHeight());
+  renderer7.setClearColor(0x888888);
+  renderer7.shadowMap.enabled = true;
+  renderer7.shadowMap.type = THREE.PCFSoftShadowMap;
+  $('#view').append(renderer7.domElement);
+}
+
+function buildArchitrave(w, h, texture) {
+	let material  = new THREE.MeshPhongMaterial({map: texture,side:THREE.DoubleSide});
+	let painting = new THREE.Mesh (new THREE.PlaneGeometry (w, h), material);
+	painting.rotation.z = Math.PI;
+	
+	let architraveTexture = loader.load( "images/woodBlack.jpg");
+	let architraveMtl = new THREE.MeshPhongMaterial({map: architraveTexture});
+	
+	let up = new THREE.Mesh(new THREE.BoxGeometry(w+10, 5, 5), architraveMtl);
+	up.position.set(0,h/2 + 2.5,-2.5);
+	painting.add(up);
+	
+	let down = new THREE.Mesh(new THREE.BoxGeometry(w+10, 5, 5), architraveMtl);
+	down.position.set(0,-h/2 - 2.5,-2.5);
+	painting.add(down);
+	
+	let left = new THREE.Mesh(new THREE.BoxGeometry(5, h, 5), architraveMtl);
+	left.position.set(-w/2 - 2.5,0,-2.5);
+	painting.add(left);
+	
+	let right = new THREE.Mesh(new THREE.BoxGeometry(5, h, 5), architraveMtl);
+	right.position.set(w/2 + 2.5,0,-2.5);
+	painting.add(right);
+	
+	return painting;
+}
+
+function buildPainting() {
+    ////////////////////哈利波特////////////////////
+	let potterTexture = loader.load( "images/HarryPotter.jpg");
+	let potter = buildArchitrave(387*0.4, 258*0.4, potterTexture);
+	potter.rotation.y = Math.PI;
+	potter.position.set(607,200, -449);
+	potter.name = 'potter';
+	pickables.push (potter);
+	scene.add(potter);
+	
+	////////////////////妙麗////////////////////
+	let hermioneTexture = loader.load( "images/Hermione.jpg");
+	let hermione = buildArchitrave(250*0.5, 276*0.5, hermioneTexture);
+	hermione.position.set(-607,200, 449);
+	hermione.name = 'hermione';
+	pickables.push (hermione);
+	scene.add(hermione);
+	
+	////////////////////榮恩////////////////////
+	let ronTexture = loader.load( "images/Ron.jpg");
+    let ron = buildArchitrave(299*0.3, 400*0.3, ronTexture);
+	ron.rotation.y = Math.PI/2;
+	ron.position.set(449,200, -300);
+	ron.name = 'ron';
+	pickables.push (ron);
+	scene.add(ron);
+	
+	////////////////////佛地魔////////////////////
+	let voldemortTexture = loader.load( "images/Voldemort.jpg");
+    let voldemort = buildArchitrave(375*0.3, 265*0.3, voldemortTexture);
+	voldemort.rotation.y = Math.PI/2;
+	voldemort.position.set(449,200, 300);
+	voldemort.name = 'voldemort';
+	pickables.push (voldemort);
+	scene.add(voldemort);
+	
+	////////////////////鄧不利多////////////////////
+	let dumbledoreTexture = loader.load( "images/Dumbledore.jpg");
+    let dumbledore = buildArchitrave(2000*0.05, 2669*0.05, dumbledoreTexture);
+	dumbledore.rotation.y = -Math.PI/2;
+	dumbledore.position.set(-449,200, 300);
+	dumbledore.name = 'dumbledore';
+	pickables.push (dumbledore);
+	scene.add(dumbledore);
+	
+	////////////////////金妮////////////////////
+	let ginnyTexture = loader.load( "images/Ginny.jpg");
+    let ginny  = buildArchitrave(375*0.3, 500*0.3, ginnyTexture);
+	ginny.rotation.y = -Math.PI/2;
+	ginny.position.set(-449,200, -300);
+	ginny.name = 'ginny';
+	pickables.push (ginny);
+	scene.add(ginny);
+}
+
+function init() {
+  
+  renderer = new THREE.WebGLRenderer({antialias: true});
+  let ww = $('#container').innerWidth();
+  let hh = $('#container').innerHeight();
+  renderer.setSize(ww, hh);
+
+  renderer.setClearColor(0x888888);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  $('#container').append(renderer.domElement);
+  
+  scene = new THREE.Scene();
+
+  camera = new THREE.PerspectiveCamera(50, ww / hh, 1, 10000);
+  camera.position.set(0,2000,700);
+  
+  let controls = new THREE.OrbitControls(camera, renderer.domElement);
+  //document.body.appendChild(renderer.domElement); 
+  
+  pos1 = new THREE.Vector3();
+  pos2 = new THREE.Vector3();
+  quat1 = new THREE.Quaternion();
+  quat2 = new THREE.Quaternion();
+  
+  buildGallery();
+  buildChair();
+  buildLights();
+  buildMonitor();
+  buildPainting();
+	
+  window.addEventListener('resize', onWindowResize, false);
+  window.addEventListener('mousedown', onDocumentMouseDown, false);
+}
+
+function onWindowResize() {
+  let ww = $('#container').innerWidth();
+  let hh = $('#container').innerHeight();
+  let ww2 = $('#monitor1').innerWidth();
+  let hh2 = $('#monitor1').innerHeight();
+  let ww3 = $('#monitor2').innerWidth();
+  let hh3 = $('#monitor2').innerHeight();
+  let ww4 = $('#monitor3').innerWidth();
+  let hh4 = $('#monitor3').innerHeight();
+  let ww5 = $('#monitor4').innerWidth();
+  let hh5 = $('#monitor4').innerHeight();
+  let ww6 = $('#view').innerWidth();
+  let hh6 = $('#view').innerHeight();
+  
+  camera.aspect = ww / hh;
+  camera.updateProjectionMatrix();
+  renderer.setSize(ww, hh);  
+  
+  sCams[0].camera.aspect = ww2 / hh2;
+  sCams[0].camera.updateProjectionMatrix();
+  renderer2.setSize(ww2, hh2); 
+
+  sCams[1].camera.aspect = ww3 / hh3;
+  sCams[1].camera.updateProjectionMatrix();
+  renderer3.setSize(ww3, hh3);  
+  sCams[2].camera.aspect = ww4 / hh4;
+  sCams[2].camera.updateProjectionMatrix();
+  renderer4.setSize(ww4, hh4);  
+  sCams[3].camera.aspect = ww5 / hh5;
+  sCams[3].camera.updateProjectionMatrix();
+  renderer5.setSize(ww5, hh5); 
+  
+  renderer7.setSize(ww6, hh6); 
+}
+
+function onDocumentMouseDown(event) {  
+  var viewportPos =$('#container').get(0).getBoundingClientRect(); 
+  mouse.x = ((event.clientX - viewportPos.left) / $('#container').innerWidth()) * 2 - 1;
+  mouse.y = -((event.clientY - viewportPos.top) / $('#container').innerHeight()) * 2 + 1;
+
+  raycaster.setFromCamera(mouse, camera);
+  var intersects = raycaster.intersectObjects (pickables);
+  if (intersects.length > 0) {
+      switch (intersects[0].object.name) {
+		case 'potter':
+			$('#words').html('哈利·詹姆·波特（英語：Harry James Potter），英國作家J·K·羅琳奇幻小說《哈利波特》系列中的主角。書中大部分的情節涵蓋了成為了孤兒的哈利在11歲時得知自己是巫師的身分，並入讀霍格華茲魔法與巫術學院六年來的生活，在慈祥的校長鄧不利多及其他教授指導下學習使用魔法。哈利還發現自己在魔法世界已甚為著名，因為眾所皆知人人懼怕的黑魔法巫師佛地魔是殺害其父母詹姆·波特及莉莉·波特的兇手，而哈利自己是在其攻擊之下唯一存活之人，被稱為「那個活下來的男孩」（The Boy Who Lived）及「被選中的人」（The Chosen One）。');
+			break;
+		case 'ron':
+			$('#words').html('榮恩·衛斯理（英語：Ron Weasley），英國作家J.K.羅琳的兒童奇幻小說《哈利波特》系列中的人物，第二男主角兼三個核心人物之一。全名榮納德·畢利亞·衛斯理（英語：Ronald Bilius "Ron" Weasley，生於1980年3月1日，哈利波特好友之一，霍格華茲魔法與巫術學院學生，另一名好友是妙麗·格蘭傑。小說及電影中所有人都稱呼他「榮恩」（Ron），而非「榮納德」（Ronald）。榮恩是亞瑟·衛斯理和茉莉·衛斯理么子，上有五位哥哥：比爾、查理、派西、弗雷和喬治，下有一個妹妹：金妮。（露娜·羅古德在原文上，確實是叫「榮恩」為「榮納德」，妙麗也在第四集電影開頭及第五集電影這樣稱呼他一次。）');
+			break;
+		case 'ginny':
+			$('#words').html('金妮·衛斯理（英語：Ginevra Molly "Ginny" Weasley），生於1981年8月11日，婚後改夫姓為金妮·波特，是哈利波特小說系列內的一個人物角色，後來成為主角哈利的妻子。金妮是亞瑟·衛斯理和茉莉·衛斯理最小的孩子和唯一的女兒，且是衛斯理家族近幾代以來唯一的女兒。她有六個哥哥，並與他們一樣長著火焰般的紅髮及明亮的啡啡色眼珠，被分到葛萊芬多學院。金妮個子嬌小，經常被形容為小貓。她前期是個個性害羞的小女孩，後期則成長為自信且法力高強的女巫，成績優秀。她跟很多男生約會過，但都很快就分手。她在遇見哈利前就常聽過哈利波特的事蹟，耳濡目染下心中也對他持有一份崇拜，最後有情人終成眷屬，嫁給了哈利波特，並生下兩子一女，詳細的名字將會在「哈利波特—被詛咒的孩子」中提到。');
+			break;
+		case 'dumbledore':
+			$('#words').html('阿不思·博知維·巫服利·布萊恩·鄧不利多（英語：Albus Percival Wulfric Brian Dumbledore，1881年7月－1997年6月30日，共116歲），是英國作家喬安·羅琳的奇幻小說《哈利波特》系列中的人物，霍格華茲魔法與巫術學院校長。鄧不利多被描繪為一位仁慈、風趣、並且法力強大的老人，類似英國的著名巫師梅林或《魔戒》中的甘道夫。他似乎知道學校的所有事情，並且不時給哈利波特一些特殊的幫助。鄧不利多亦是佛地魔唯一忌憚的人。阿不思名字的來源是拉丁文一詞albus （白色），象徵「好」；「鄧不利多」在近代英語裡的意思是「熊蜂」，靈感是作者想像鄧不利多漫步沿霍格華茲的大廳哼哼唱唱的情景。');
+			break;
+		case 'voldemort':
+			$('#words').html('佛地魔王（英語：Lord Voldemort），原名湯姆·魔佛羅·瑞斗（Tom Marvolo Riddle），是英國作家J·K·羅琳的魔幻小說《哈利波特》系列中的虛構人物，是小說中「史上最危險的巫師」。湯姆生於1926年12月31日，死於1981年10月31日；後於1995年6月24日，使用復活咒語「強行奪取的仇人之血，將使你的仇敵的復活。」（"Blood of the enemy forcibly taken,you will resurrect your foe."）重生，再於1998年5月2日，被自己使用的索命咒反噬,第二次死亡，終年71歲。');
+			break;
+		case 'hermione':
+			$('#words').html('妙麗·格蘭傑（英語：Hermione Granger），英文全名Hermione Jean Granger。系列小說作者J.K.羅琳表示「Hermione」的命名來源，是取自威廉·莎士比亞的著作《冬天的故事》中西西里貞潔又美麗的王后。而「Hermione」這個名字的原始起源為古希臘神話十二主神裡的「Hermes」，中文為荷米斯，其擁有擁有穿越神界和凡間的能力，暗示麻瓜出身的女巫妙麗可以在巫師世界和麻瓜世界來去自由，是女主角兼三個核心人物之一，與哈利波特和榮恩·衛斯理為摯交好友。身分是霍格華茲魔法與巫術學院的學生。');
+	}
+  }
+    //alert (intersects[0].object.name + " is picked!")
+}
+
+function keyframe(t) {
+  var s = ((t - ts) % T) / T;
+
+  for (var i = 1; i < keys.length; i++) {
+    if (keys[i][0] > s) break;
+  }
+  // take i-1
+  var ii = i - 1;
+  var a = (s - keys[ii][0]) / (keys[ii + 1][0] - keys[ii][0]);
+  intKey = keys[ii][1] * (1 - a) + keys[ii + 1][1] * a;
+  return intKey;
+}
+
+function animate() {
+	if(change) {
+		if(!tmp) {
+			var qm = quat1.clone();
+			qm.slerp (quat2, alpha);
+			camera.quaternion.copy (qm);
+		}
+		
+		var pp = pos1.clone();
+		pp.lerp (pos2, alpha);
+		camera.position.copy (pp);
+		alpha += 0.02;
+		//console.log(alpha);
+		if(alpha > 1) {
+			alpha = 0;
+			if(tmp) {	
+				pos1.copy(camera.position);
+				console.log('123')
+				pos2.copy(lights[$('#painting').val()].getPosition());
+				pos2.y -= 60;
+				
+				let p = new THREE.Vector3();
+				p.copy(points[$('#painting').val()].position);
+				let oldDir =pos2.clone().sub(pos1).normalize()
+				let newDir = p.sub(pos2).normalize();
+				let localDir = new THREE.Vector3(0 , 0, -1);
+				quat1.setFromUnitVectors (localDir, oldDir);
+				quat2.setFromUnitVectors (localDir, newDir);
+				tmp = false;
+			} else {			
+				camera.lookAt(points[$('#painting').val()].position)
+				change = false;
+			}
+		}
+	}
+	
+  monitors.forEach(function(monitor, index) {
+    
+	if(sCams[index].isOn){
+		sCams[index].time +=0.02;
+		let intkey = keyframe(sCams[index].time);
+		monitor.rotation.y = intkey;
+	}
+  }); 
+  
+  sCams.forEach(function(sCam,index) {
+    sCam.camera.matrixWorld.copy (cameraobjs[index].matrixWorld);
+    sCam.camera.matrixAutoUpdate = false;
+  });
+
+  requestAnimationFrame(animate);
+  render();
+}
+
+function render() {
+  renderer.render(scene, camera);
+  renderer2.render(scene, sCams[0].camera);
+  renderer3.render(scene, sCams[1].camera);
+  renderer4.render(scene, sCams[2].camera);
+  renderer5.render(scene, sCams[3].camera);
+  renderer7.render(scene, sCams[id].camera);
+}
+</script>
+</body>
+
+</html>

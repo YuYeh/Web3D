@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+	.snow-container {
+		position: absolute;
+		height: 100%;
+		width: 100%;
+		top: 0;
+		left:0;
+		overflow: hidden;
+		z-index: -1;
+		background-color: #262626;
+	}
+	.snow {
+		display: block;
+		position: absolute;
+		z-index: 3;
+		top: 0;
+		right: 0;
+		bottom: 0;
+		left: 0;
+		pointer-events: none;
+		-webkit-transform: translate3d(0, -100%, 0);
+		transform: translate3d(0, -100%, 0);
+		-webkit-animation: snow linear infinite;
+		animation: snow linear infinite;
+	}
+	.snow.foreground {
+		background-image: url("https://dl6rt3mwcjzxg.cloudfront.net/assets/snow/snow-large-075d267ecbc42e3564c8ed43516dd557.png");
+		-webkit-animation-duration: 15s;
+		animation-duration: 15s;
+		z-index: 5;
+	}
+	.snow.foreground.layered {
+		-webkit-animation-delay: 7.5s;
+		animation-delay: 7.5s;
+	}
+	.snow.middleground {
+		background-image: url(https://dl6rt3mwcjzxg.cloudfront.net/assets/snow/snow-medium-0b8a5e0732315b68e1f54185be7a1ad9.png);
+		-webkit-animation-duration: 20s;
+		animation-duration: 20s;
+		z-index: 3;
+	}
+	.snow.middleground.layered {
+		-webkit-animation-delay: 10s;
+		animation-delay: 10s;
+	}
+	.snow.background {
+		background-image: url(https://dl6rt3mwcjzxg.cloudfront.net/assets/snow/snow-small-1ecd03b1fce08c24e064ff8c0a72c519.png);
+		-webkit-animation-duration: 30s;
+		animation-duration: 30s;
+		z-index: -2;
+	}
+	.snow.background.layered {
+		-webkit-animation-delay: 15s;
+		animation-delay: 15s;
+	}
+	@-webkit-keyframes snow {
+		0% {
+			-webkit-transform: translate3d(0, -100%, 0);
+			transform: translate3d(0, -100%, 0);
+		}
+		100% {
+			-webkit-transform: translate3d(15%, 100%, 0);
+			transform: translate3d(15%, 100%, 0);
+		}
+	}
+	@keyframes snow {
+	0% {
+		-webkit-transform: translate3d(0, -100%, 0);
+			transform: translate3d(0, -100%, 0);
+		}
+		100% {
+			-webkit-transform: translate3d(15%, 100%, 0);
+			transform: translate3d(15%, 100%, 0);
+		}
+	}
+</style>
+</head>
+<body> 	
+	<div class="snow-container">
+		<img src="https://i.imgur.com/YdY7lS4.png" style="position:absolute;top:10vw;left:30vw;width:30vw">
+		<div class="snow foreground"></div>
+		<div class="snow foreground layered"></div>
+		<div class="snow middleground"></div>
+		<div class="snow middleground layered"></div>
+		<div class="snow background"></div>
+		<div class="snow background layered"></div>
+	</div>
+	<script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+	<button id='switch'>off</button>
+	<button id='diffculty'>complex</button>
+	<button id='music'>music:on</button>
+	<audio id="soundtrack" auto play style="display:none" loop="loop">
+		<source src="sounds/Christmas - AShamaluevMusic.mp3" type='audio/mp3'>
+	</audio>
+<script>
+	class Light { 
+		constructor() {  
+			this.element = document.createElement ('div');
+			this.element.id = 'light';
+			this.saturation = 100;
+			this.mode = 1;
+			this.element.style.cssText = "position:absolute;width:20px;height:20px;border-radius:15px;z-index:1"; 
+			this.element.style.background = "hsl(89, 100%, 70%)";
+			document.getElementsByTagName('body')[0].appendChild(this.element);
+		}
+		changeColor() {
+			var self = this;
+			var hue = Math.random()*360;
+			self.element.style.background = "hsl(" + hue + ", " + this.saturation +"%, 70%)";  
+			if(this.mode) {
+				this.time =  500;
+			} else {
+				this.time =  Math.random()*2000;
+			}
+			this.tmp = setTimeout (function() { self.changeColor() } , this.time);
+		}
+		clearColor() {
+			clearInterval(this.tmp);
+			this.element.style.background = "hsl(0,0%, 70%)";  
+		}
+		positionSet(x,y) {
+			this.element.style.top =  x + 'vw';
+			this.element.style.left = y + 'vw';
+		}
+	}
+	var lights = [], soundTrack;
+	var type = true, type2 = true, type3 = false;
+	////////////////////////////////
+	init();
+
+	function init() {
+		lights.push(new Light());
+		lights[lights.length-1].positionSet(18,43);
+		lights.push(new Light());
+		lights[lights.length-1].positionSet(21,41);
+		lights.push(new Light());
+		lights[lights.length-1].positionSet(24,44);
+		lights.push( new Light());
+		lights[lights.length-1].positionSet(26,48);
+		lights.push( new Light());
+		lights[lights.length-1].positionSet(28,42);
+		lights.push( new Light());
+		lights[lights.length-1].positionSet(30,39);
+		lights.push( new Light());
+		lights[lights.length-1].positionSet(32,49);
+		lights.push( new Light());
+		lights[lights.length-1].positionSet(34,45);
+		lights.forEach(function(light) {
+			light.changeColor();
+		});
+		soundTrack = document.getElementById ("soundtrack");
+	}
+
+	$('#switch').click ( function() {
+		type = !type;
+		if(type) {
+			$('#switch').text ("of");
+			lights.forEach(function(light) {
+				light.saturation = 100;
+				light.changeColor();
+			});
+		} else {
+			$('#switch').text ("on");
+			lights.forEach(function(light) {
+				light.saturation = 0;
+				light.clearColor();
+			});
+		}
+	});
+	$('#diffculty').click ( function() {
+		type2 = !type2;
+		if(type2) {
+			$('#diffculty').text ("complex");
+			lights.forEach(function(light) {
+				light.mode = 1;
+			});
+		} else {
+			$('#diffculty').text ("simple");
+			lights.forEach(function(light) {
+				light.mode = 0;
+			});
+		}
+	});
+	$('#music').click ( function() {
+		type3 = !type3;
+		if(type3) {
+			$('#music').text ("music: off");
+			soundTrack.play();
+		} else {
+			$('#music').text ("music: on");
+			soundTrack.pause();
+		}
+	});
+</script>
+</body>
+</html>

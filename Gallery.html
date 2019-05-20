@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+<style>
+	#info {
+	  position: absolute;
+	  top: 2%;
+	  width: 100%;
+	  padding: 10px;
+	  text-align: center;
+	  color: #ffff00
+	}
+
+	body {
+	  overflow: hidden;
+	}
+</style>
+</head>
+
+<body> 
+	<div id="info">Gallery<br>
+	
+	  <a href="images/Gallery floor plan.jpg" >Gallery floor plan </a><br>
+	  <button id='switch'>turn off</button>
+	  <button id = "monitor">monitor: 1</button>
+	  <button id = "viewpoint">default</button>
+	  <br> spotLight<br><input type=range min=0 max=2 step=0.1 id='intensity'>
+	  <br> directionalLight<br><input type=range min=0 max=1.5 step=0.1 id='intensity2'>
+	</div>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/102/three.min.js"></script>
+	<script src="https://threejs.org/examples/js/controls/OrbitControls.js"></script>
+	<script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+<script>
+class Light {
+  constructor() {
+    this.name = 'light';
+    this.isOn = true;
+    this.mesh = this.lightInit();
+  }
+
+  lightInit() {   
+    ////////////////////燈罩////////////////////
+    let lampshadeTexture = loader.load( "https://i.imgur.com/a0Roczn.jpg");
+    let lampshadeMtl = new THREE.MeshPhongMaterial({map: lampshadeTexture,side:THREE.DoubleSide}); 	
+    let lampshade = new THREE.Mesh(new THREE.CylinderGeometry(10,15,18,64,64,true),lampshadeMtl);
+    lampshade.rotation.x = -Math.PI/2;
+
+    ////////////////////燈泡&光線////////////////////
+    this.light = new THREE.SpotLight(0xffffff,1.2);
+    this.light.angle = 0.45;
+    this.light.penumbra = 0.3;
+    this.light.decay = 1;
+    this.light.distance = 400;
+    this.lightHelper = new THREE.SpotLightHelper(this.light);
+    let lightBulb = new THREE.Mesh(new THREE.SphereGeometry(8,32,32),new THREE.MeshPhongMaterial());
+
+    ////////////////////陰影////////////////////
+    this.light.castShadow = true;
+    this.light.shadow.mapSize.width = 1024;
+    this.light.shadow.mapSize.height = 1024;
+    this.light.shadow.camera.near = 50;
+    this.light.shadow.camera.far = 1000;
+    this.light.shadow.camera.fov = 20;
+    lampshade.castShadow = true;
+    lampshade.receiveShadow = true;
+    lightBulb.castShadow = true;
+    lightBulb.receiveShadow = true;
+
+    ////////////////////包起來////////////////////
+    let obj = new THREE.Object3D();
+    lampshade.add(lightBulb,this.light);
+    obj.add(lampshade);
+    return obj; 
+  }
+
+  positionSet(x, y, z) {
+    this.mesh.position.set(x, y, z);
+  }
+
+  lookAt(point) {
+    this.light.target = point;
+    this.mesh.lookAt(point.position);
+  }
+
+  switch() {
+    this.light.intensity = this.isOn ? 1 : 0;
+  }
+
+  lightLelper() {
+    return this.lightHelper;
+  }
+}
+
+var camera, scene, renderer;
+var loader = new THREE.TextureLoader();
+var floor, lights = [], dLights = [], isOn = true;
+var monitors = [], sCams = [], cameraobjs = [], vps = [];
+var angle = 0, sign = 1,type = 1, tmp=0, tmp2=0;
+var directionalLight;
+var T = 12;
+var clock = new THREE.Clock();
+var ts = clock.getElapsedTime();
+var keys = [
+  [0, -0.9], [0.4, 1.4], [0.5, 1.4], [0.9, -0.9], [1, -0.9]
+];
+init();
+animate();
+
+$('#switch').click(function() {
+  isOn = !isOn;
+  //directionalLight.intensity = isOn? 1 : 0.1;
+  $('#intensity').val(isOn? "1.2" : "0");
+  $('#intensity2').val(isOn? "1.2" : "0.1");
+  if(isOn) {
+    $('#switch').text ("turn off");
+  } else {
+    $('#switch').text ("turn  on");
+  }
+});
+
+$("#monitor").click(function() {
+  type = 0;
+  if(tmp++ +1 == monitors.length) {
+    tmp = 0;
+  }
+  $('#monitor').text ("monitor: " + (tmp + 1));
+  console.log(tmp)
+});
+
+$("#viewpoint").click(function() {
+  type = 1;
+  if(tmp2++ +1 == vps.length) {
+    tmp2 = 0;
+    $('#viewpoint').text ("default");
+  } else {
+    $('#viewpoint').text ("viewpoint: " + tmp2);
+  }  
+});
+
+function buildChair() {
+	////////////////////坐墊////////////////////
+	loader.setCrossOrigin ('');
+	let  ChairBaseTexture = loader.load( "https://i.imgur.com/aVjgLJO.png");
+  ChairBaseTexture.wrapS = THREE.RepeatWrapping;
+  ChairBaseTexture.wrapT = THREE.RepeatWrapping;
+  ChairBaseTexture.repeat.set(4, 2);
+  let  ChairBaseMtl = new THREE.MeshPhongMaterial({map: ChairBaseTexture});
+	let  chairBase = new THREE.Mesh(new THREE.BoxGeometry(200, 10, 100),ChairBaseMtl);
+  
+  ////////////////////桌腳////////////////////
+  let  footTexture = loader.load( "https://i.imgur.com/1vu22Gt.jpg");
+  footTexture.wrapS = THREE.RepeatWrapping;
+  footTexture.wrapT = THREE.RepeatWrapping;
+  footTexture.repeat.set(5, 12);
+  let  footMtl = new THREE.MeshPhongMaterial({map: footTexture});
+	let  foot1 = new THREE.Mesh(new THREE.BoxGeometry(20, 50, 100),footMtl);
+  foot1.position.set(90,-30, 0);
+  chairBase.add(foot1);
+  let foot2 = foot1.clone();
+  foot2.position.x = -90;
+  chairBase.add(foot2);
+  chairBase.position.set(-150,55.5,150);
+  
+  ////////////////////陰影////////////////////
+  chairBase.traverse (
+    function (mesh) {
+      if (mesh instanceof THREE.Mesh) {
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+      }
+    }
+  );
+  scene.add(chairBase);
+  
+  let chairBase2 = chairBase.clone();
+  chairBase2.position.x = 150;
+  scene.add(chairBase2);
+  
+}
+
+function buildGallery() {
+  loader.setCrossOrigin ('');
+  let floorTexture = loader.load( "https://i.imgur.com/QdQv1Mu.jpg");
+  floorTexture.wrapS = THREE.RepeatWrapping;
+  floorTexture.wrapT = THREE.RepeatWrapping;
+  floorTexture.repeat.set(15, 9);
+  let floorMtl = new THREE.MeshPhongMaterial({map: floorTexture,side:THREE.DoubleSide});
+  //let floorMtl = new THREE.MeshBasicMaterial({map: floorTexture,side:THREE.DoubleSide});
+  floor = new THREE.Mesh(new THREE.PlaneGeometry(1520, 900),floorMtl);
+  floor.rotation.x = -Math.PI/2;
+
+  floor.receiveShadow = true;
+  scene.add(floor);
+  ////////////////////外牆//////////////////// 
+  let wallTexture = loader.load( "https://i.imgur.com/tP38yi4.jpg");
+  wallTexture.wrapS = THREE.RepeatWrapping;
+  wallTexture.wrapT = THREE.RepeatWrapping;
+  wallTexture.repeat.set(15, 5);
+  let wallMtl = new THREE.MeshPhongMaterial({map:wallTexture});
+  //let wallMtl = new THREE.MeshBasicMaterial({map:wallTexture});
+  let wallL = new THREE.Mesh(new THREE.BoxGeometry(10, 300, 920),wallMtl);
+  wallL.position.set(765, 150.5, 0);
+  wallL.receiveShadow = true;
+  scene.add(wallL);
+  let wallR = wallL.clone();
+  wallR.position.x = -765;
+  wallR.receiveShadow = true;
+  scene.add(wallR);  
+  let wallF = new THREE.Mesh(new THREE.BoxGeometry(1400, 300, 10),wallMtl);
+  wallF.position.set(-60, 150.5, 455);
+  wallF.receiveShadow = true;
+  scene.add(wallF);
+  let wallB = wallF.clone();
+  wallB.position.set(60, 150.5, -455);
+  wallB.receiveShadow = true;
+  scene.add(wallB);
+
+  ////////////////////內牆////////////////////
+  let wall1 = new THREE.Mesh(new THREE.BoxGeometry(10, 300, 300),wallMtl);
+  wall1.position.set(-455, 150.5, -300);
+  wall1.receiveShadow = true;
+  scene.add(wall1);
+  let wall2 = wall1.clone();
+  wall2.position.x = 455;
+  wall2.receiveShadow = true;
+  scene.add(wall2);
+  let wall3 = wall2.clone();
+  wall3.position.z = 300;
+  wall3.receiveShadow = true;
+  scene.add(wall3);
+  let wall4 = wall3.clone();
+  wall4.position.x = -455;
+  wall4.receiveShadow = true;
+  scene.add(wall4);
+  let wall5 = new THREE.Mesh(new THREE.BoxGeometry(590,300,10),wallMtl);
+  wall5.position.set(155,150.5, -155);
+  wall5.receiveShadow = true;
+  scene.add(wall5);
+
+  ////////////////////天花板////////////////////
+  let ceiling = new THREE.Mesh(new THREE.PlaneGeometry(1520, 900), new THREE.MeshPhongMaterial({
+    side: THREE.DoubleSide,
+    transparent: true,
+    opacity: 0.2
+  }));
+  ceiling.rotation.x = Math.PI / 2;
+  ceiling.position.y = 300;
+  scene.add(ceiling);
+
+}
+
+function buildLights() {
+  let p1 = new THREE.Mesh (new THREE.SphereGeometry(10,32,32), new THREE.MeshBasicMaterial({color:'red'}));
+  p1.material.visible = false;
+  p1.position.set (605,200, -455); 
+  scene.add (p1);
+  lights.push(new Light());
+  lights[lights.length-1].positionSet(605,280,-255); 
+  lights[lights.length-1].lookAt(p1);
+  scene.add(lights[lights.length-1].mesh);
+
+
+  let p2 = new THREE.Mesh (new THREE.SphereGeometry(10,32,32), new THREE.MeshBasicMaterial({color:'red'}));
+  p2.material.visible = false;
+  p2.position.set (455,200, -300); 
+  scene.add (p2);
+  lights.push(new Light());
+  lights[lights.length-1].positionSet(255,280,-300); 
+  lights[lights.length-1].lookAt(p2);
+  scene.add(lights[lights.length-1].mesh);
+
+
+  let p3 = new THREE.Mesh (new THREE.SphereGeometry(10,32,32), new THREE.MeshBasicMaterial({color:'red'}));
+  p3.material.visible = false;
+  p3.position.set (-455,200, -300); 
+  scene.add (p3);
+  lights.push(new Light());
+  lights[lights.length-1].positionSet(-255,280,-300); 
+  lights[lights.length-1].lookAt(p3);
+  scene.add(lights[lights.length-1].mesh);
+
+  let p4 = new THREE.Mesh (new THREE.SphereGeometry(10,32,32), new THREE.MeshBasicMaterial({color:'red'}));
+  p4.material.visible = false;
+  p4.position.set (-455,200, 300); 
+  scene.add (p4);
+  lights.push(new Light());
+  lights[lights.length-1].positionSet(-255,280,300); 
+  lights[lights.length-1].lookAt(p4);
+  scene.add(lights[lights.length-1].mesh);
+
+  let p5 = new THREE.Mesh (new THREE.SphereGeometry(10,32,32), new THREE.MeshBasicMaterial({color:'red'}));
+  p5.material.visible = false;
+  p5.position.set (455,200, 300); 
+  scene.add (p5);
+  lights.push(new Light());
+  lights[lights.length-1].positionSet(255,280,300); 
+  lights[lights.length-1].lookAt(p5);
+  scene.add(lights[lights.length-1].mesh);
+
+  let p6 = new THREE.Mesh (new THREE.SphereGeometry(10,32,32), new THREE.MeshBasicMaterial({color:'red'}));
+  p6.material.visible = false;
+  p6.position.set (-605,200, 455); 
+  scene.add (p6);
+  lights.push(new Light());
+  lights[lights.length-1].positionSet(-605,280,255); 
+  lights[lights.length-1].lookAt(p6);
+  scene.add(lights[lights.length-1].mesh);
+  
+  let p7 = new THREE.Mesh (new THREE.SphereGeometry(10,32,32), new THREE.MeshBasicMaterial({color:'red'}));
+  p7.material.visible = false;
+  p7.position.set (-100,55.5,150); 
+  scene.add (p7);
+  lights.push(new Light());
+  lights[lights.length-1].positionSet(-30,280,150); 
+  lights[lights.length-1].lookAt(p7);
+  scene.add(lights[lights.length-1].mesh);
+	
+  let p8 = new THREE.Mesh (new THREE.SphereGeometry(10,32,32), new THREE.MeshBasicMaterial({color:'red'}));
+  p8.material.visible = false;
+  p8.position.set (-200,55.5,150); 
+  scene.add (p8);
+  lights.push(new Light());
+  lights[lights.length-1].positionSet(-270,280,150); 
+  lights[lights.length-1].lookAt(p8);
+  scene.add(lights[lights.length-1].mesh);
+  
+  let p9 = new THREE.Mesh (new THREE.SphereGeometry(10,32,32), new THREE.MeshBasicMaterial({color:'red'}));
+  p9.material.visible = false;
+  p9.position.set (100,55.5,150); 
+  scene.add (p9);
+  lights.push(new Light());
+  lights[lights.length-1].positionSet(30,280,150); 
+  lights[lights.length-1].lookAt(p9);
+  scene.add(lights[lights.length-1].mesh);
+	
+  let p10 = new THREE.Mesh (new THREE.SphereGeometry(10,32,32), new THREE.MeshBasicMaterial({color:'red'}));
+  p10.material.visible = false;
+  p10.position.set (200,55.5,150); 
+  scene.add (p10);
+  lights.push(new Light());
+  lights[lights.length-1].positionSet(270,280,150); 
+  lights[lights.length-1].lookAt(p10);
+  scene.add(lights[lights.length-1].mesh);
+  
+
+  dLights.push(new THREE.DirectionalLight(0x888888));
+  dLights[dLights.length-1].position.y = 900;
+  dLights[dLights.length-1].castShadow = true;
+  scene.add(dLights[dLights.length-1])
+  
+  dLights.push(dLights[dLights.length-1].clone());
+  dLights[dLights.length-1].position.x = 900;
+  scene.add(dLights[dLights.length-1])
+  
+  dLights.push(dLights[dLights.length-1].clone());
+  dLights[dLights.length-1].position.x = -900;
+  scene.add(dLights[dLights.length-1])
+  
+  dLights.push(dLights[0].clone());
+  dLights[dLights.length-1].position.z = -1500;
+  scene.add(dLights[dLights.length-1])
+  dLights.push(dLights[dLights.length-1].clone());
+  dLights[dLights.length-1].position.z = 1500;
+  scene.add(dLights[dLights.length-1])
+  
+	$('#intensity').val("1.2");
+    $('#intensity2').val("1.2");
+  /*let l1 = new THREE.SpotLight(0x888888);
+  l1.position.y = 500;
+  l1.target = lights[3].mesh;
+  l1.angle = 0.45;
+  l1.penumbra = 0.3;
+  l1.decay = 1;
+  l1.castShadow = true;
+  l1.shadow.mapSize.width = 1024;
+  l1.shadow.mapSize.height = 1024;
+  l1.shadow.camera.near = 50;
+  l1.shadow.camera.far = 1000;
+  l1.shadow.camera.fov = 20;
+  scene.add(l1)*/
+}
+
+function buildMonitor() {
+  ////////////////////監視器1號////////////////////
+  sCams.push(new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 1, 10000))
+  cameraobjs.push(new THREE.Object3D());
+  //cameraobjs[cameraobjs.length-1].add (new THREE.AxisHelper (40))
+  
+  let mointorTexture = loader.load( "https://i.imgur.com/i04FSgR.jpg");
+  let mointorMtl = new THREE.MeshPhongMaterial({map: mointorTexture});
+  //let floorMtl = new THREE.MeshBasicMaterial({map: floorTexture,side:THREE.DoubleSide});
+  let cameraBody = new THREE.Mesh (new THREE.BoxGeometry (20,12,5), mointorMtl);
+  let lens = new THREE.Mesh (new THREE.CylinderGeometry (5,5,10), mointorMtl);
+  lens.position.z = -5;
+  lens.rotation.x = Math.PI/2;
+  cameraobjs[cameraobjs.length-1].add (cameraBody, lens);
+  
+  cameraBody.castShadow = true;
+  cameraBody.receiveShadow = true;
+  lens.castShadow = true;
+  lens.receiveShadow = true;
+  
+  monitors.push(new THREE.Object3D());
+  monitors[monitors.length-1].add (cameraobjs[cameraobjs.length-1]);
+  monitors[monitors.length-1].position.set (-430, 280, -150);
+  scene.add (monitors[monitors.length-1]);
+
+  cameraobjs[cameraobjs.length-1].rotation.y = -3*Math.PI/4; 
+  cameraobjs[cameraobjs.length-1].rotation.x = -Math.PI/8 ;
+  cameraobjs[cameraobjs.length-1].rotation.order = 'YXZ';
+
+
+  ////////////////////監視器2號////////////////////
+  sCams.push(new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 1, 10000))
+  cameraobjs.push(new THREE.Object3D());
+  
+  cameraobjs[cameraobjs.length-1].add (cameraBody.clone(), lens.clone());
+
+  monitors.push(new THREE.Object3D());
+  monitors[monitors.length-1].add (cameraobjs[cameraobjs.length-1]);
+  monitors[monitors.length-1].position.set (430, 280, 150);
+  scene.add (monitors[monitors.length-1]);
+
+  cameraobjs[cameraobjs.length-1].rotation.y = Math.PI/4; 
+  cameraobjs[cameraobjs.length-1].rotation.x = -Math.PI/8 ;
+  cameraobjs[cameraobjs.length-1].rotation.order = 'YXZ'
+  
+  ////////////////////預設視角////////////////////
+  vps.push(camera);
+  
+  ////////////////////1號視角////////////////////
+  vps.push(new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 1, 10000));
+  vps[vps.length-1].position.set(800,1500,900);
+  vps[vps.length-1].lookAt(floor.position);
+  ////////////////////1號視角////////////////////
+  vps.push(new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 1, 10000));
+  vps[vps.length-1].position.set(-800,1500,-900);
+  vps[vps.length-1].lookAt(floor.position);
+}
+
+function init() {
+  scene = new THREE.Scene();
+
+  camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 1, 10000);
+  //camera.position.set(800,800,1500);
+  camera.position.set(0,2000,700);
+  //var gridXZ = new THREE.GridHelper(200, 20, 'red', 'white');
+  //scene.add(gridXZ);
+
+  renderer = new THREE.WebGLRenderer({antialias: true});
+  renderer.setSize(window.innerWidth, window.innerHeight);
+
+  renderer.setClearColor(0x888888);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  let controls = new THREE.OrbitControls(camera, renderer.domElement);
+
+  document.body.appendChild(renderer.domElement); 
+
+  buildGallery();
+  buildChair();
+  buildLights();
+  buildMonitor();
+
+  window.addEventListener('resize', onWindowResize, false);
+}
+
+function onWindowResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);  
+}
+
+function keyframe(t) {
+  var s = ((t - ts) % T) / T;
+  //console.log(s);
+
+  for (var i = 1; i < keys.length; i++) {
+    if (keys[i][0] > s) break;
+  }
+  // take i-1
+  var ii = i - 1;
+  //console.log (ii)
+  var a = (s - keys[ii][0]) / (keys[ii + 1][0] - keys[ii][0]);
+  intKey = keys[ii][1] * (1 - a) + keys[ii + 1][1] * a;
+  //console.log (a)
+	return intKey;
+  //console.log (intKey);  // array linear combo?!
+}
+
+function animate() {
+	let intkey = keyframe(clock.getElapsedTime());
+  /*angle += 0.005*sign;
+  if (angle > 1.4 || angle < -0.9)
+    sign *= -1;*/
+  monitors.forEach(function(monitor) {
+    monitor.rotation.y = intkey;
+  }); 
+  
+  sCams.forEach(function(sCam,index) {
+    sCam.matrixWorld.copy (cameraobjs[index].matrixWorld);
+    sCam.matrixAutoUpdate = false;
+  });
+  
+  lights.forEach(function(light) {
+  	light.light.intensity = $('#intensity').val();
+  })
+  
+  dLights.forEach(function(dLight) {
+    dLight.intensity = $('#intensity2').val();
+  })
+  
+  requestAnimationFrame(animate);
+  render();
+}
+
+function render() {
+  if(type) {
+    renderer.render(scene, vps[tmp2]);
+  } else {
+    renderer.render(scene, sCams[tmp]);
+  }
+}
+</script>
+</body>
+
+</html>
