@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+<style>
+		
+</style>
+</head>
+<body>
+	<h1 style="text-align:center;font-family:Microsoft JhengHei;margin:1px;"> Race</h1>
+	<p id = "prepare" style="text-align:center;font-family:Microsoft JhengHei;margin:1px;color:red;font-size:25px;font-weight:bold">&nbsp;</p>
+	<hr>
+	<div style="text-align: center;font-family:Microsoft JhengHei;">
+		<div style="display:inline-block;">
+			<div id="containerL" style="background-color:pink;margin-bottom:3px;width:20vw;height:20vw">
+			</div>
+			<div id="speedometer" style="background-color:pink;width:20vw; height:20vw">
+			</div>
+		</div>
+		<div style="display:inline-block;vertical-align:top">
+			<div id="container" style="background-color:yellow;margin-bottom:5px;width:50vw; height:35vw">
+			</div>
+			<button id = 'ready'style = "width:5vw;height:5vw">ready</button>
+			<button id ='step' style = "width:40vw;height:5vw" disabled =true>step</button>
+			<button id = 'unready'style = "width:5vw;height:5vw" disabled =true>unready</button>
+		</div>
+		<div style="display:inline-block;">
+			<div id="containerR" style="background-color:pink;margin-bottom:3px;width:20vw; height:20vw">
+			</div>
+			<div id="fuelMeter" style="background-color:pink;width:20vw; height:20vw">
+			</div>
+		</div>
+	</div>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/104/three.min.js"></script>
+	<script src="https://threejs.org/examples/js/controls/OrbitControls.js"></script>
+	<script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.2.0/socket.io.js"></script>
+	<script src="https://jyunming-chen.github.io/tutsplus/js/KeyboardState.js"></script>
+	<script src="https://rawgit.com/mrdoob/three.js/master/examples/js/loaders/MTLLoader.js"></script>
+	<script src="https://rawgit.com/mrdoob/three.js/master/examples/js/loaders/OBJLoader.js"></script>
+<script>
+	var camera, scene, renderer;
+	var cameraL, rendererL,cameraRTTL,sceneRTTL;
+	var cameraR, rendererR,cameraRTTR,sceneRTTR;
+	var sceneM, rendererS, rendererF,cameraF,cameraS;
+	var check = false, step = false, engine = true;
+	var rpF,rpS;
+	var renderTarget;
+	var omega, theta, R, fuel;
+	var clock = new THREE.Clock();
+	var keyboard;
+	var loader;
+	var socket;
+	var isReady = [false, false],isFinish = [false, false];
+	var myID, otherID;  // either 0 or 1
+	var cars = [],isRun = [false,false],radius = [70,70*0.8];
+	var carStatus = [];
+	var countdown,s = 5, isEnd = false, peroidicSync;
+	var sceneHUD,cameraHUD, camera3rd;
+	
+	
+	$(function () {
+
+		socket = io();
+			
+		socket.on ('id_set', function(msg) {
+			console.log ('i am ' + msg);
+
+			// setting myID in this client
+			myID = msg;
+			if (myID === 0)
+				otherID = 1;
+			else
+				otherID = 0;  
+
+			if (myID === 0) {
+				console.log('I am client 0')
+			} else {
+				console.log('I am client 1')
+			}
+		});
+
+		socket.on ('update_status', function (status) {
+			for (let i = 0; i < status.length; i++) {
+				cars[status[i].id].visible = true;   
+				isRun[status[i].id] = status[i].step;
+				isReady[status[i].id] = status[i].ready;
+				isFinish[status[i].id] = status[i].finish;
+			}
+				if(!isEnd) ending();
+		});
+		
+		socket.on ('countDown', function (second) {
+			document.getElementById('unready').disabled  = true;
+			s = second;
+			countDown();
+		});
+		
+		socket.on ('angle_now', function (data) {
+			//console.log (data.angle + 'of ' + otherID);
+			carStatus[otherID].rotation = data.angle;
+			carStatus[otherID].speed = data.speed;
+			//carStatus[otherID].fuel = data.fuel;
+			cars[otherID].position.set(radius[otherID] * Math.cos(carStatus[otherID].rotation), 0, -radius[otherID] * Math.sin(carStatus[otherID].rotation));
+			cars[otherID].rotation.y = carStatus[otherID].rotation;	
+		});
+
+	});
+	
+	$("#ready").click(function() {
+		//stopBtn= ,
+		document.getElementById('ready').disabled  = true;
+		document.getElementById('unready').disabled  = false;
+		isReady[myID] = true;
+		var param = { id: myID,ready:true};
+		let statusStr = JSON.stringify (param);
+		socket.emit ('readyCheck', statusStr);
+	});
+	
+	$("#unready").click(function() {
+		//stopBtn= ,
+		document.getElementById('ready').disabled  = false;
+		document.getElementById('unready').disabled  = true;
+		isReady[myID] = false;
+		var param = { id: myID,ready:false};
+		let statusStr = JSON.stringify (param);
+		socket.emit ('readyCheck', statusStr);
+	});
+	
+	$("#step").on('mousedown', function(e) {
+		console.log('mouse down')
+		step = true;
+		$(this).css("background-color", "yellow");
+		if(!isEnd) {
+			var param = { id: myID,step:step};
+			let statusStr = JSON.stringify (param);
+			socket.emit ('accelerator', statusStr);
+		} else {
+			document.getElementById('step').disabled  = true;	
+		}
+	
+	}).on('mouseup', function(e) {
+		console.log('mouse up')
+		step = false;	
+		$(this).css("background-color", "white");
+		
+		var param = { id: myID,step:step};
+		let statusStr = JSON.stringify (param);
+		socket.emit ('accelerator', statusStr);
+	});
+	
+	init();
+	animate();
+	
+	peroidicSync = setInterval (
+	function () {
+		console.log (myID);
+		if (myID === undefined) return;
+		console.log ('in sync ' + myID);
+		//let data = {id: myID, angle: carStatus[myID].rotation,speed:carStatus[myID].speed,fuel:carStatus[myID].fuel};
+		let data = {id: myID, angle: carStatus[myID].rotation,speed:carStatus[myID].speed};
+		socket.emit ('angle_now', data);
+	}, 
+	200);
+	
+	function init() {
+			
+		////////////////主畫面////////////////
+		var ww = $("#container").innerWidth();
+		var hh = $("#container").innerHeight();
+		renderer = new THREE.WebGLRenderer({antialias: true});
+		renderer.setSize(ww, hh);
+		renderer.setClearColor(0x888888);
+		$("#container").append(renderer.domElement);
+		
+		////////////////後照鏡(左)////////////////
+		var wwL = $("#containerL").innerWidth();
+		var hhL = $("#containerL").innerHeight();
+		rendererL = new THREE.WebGLRenderer({antialias: true});
+		rendererL.setSize(wwL,hhL);
+		rendererL.setClearColor(0x888888);
+		$("#containerL").append(rendererL.domElement);
+
+		////////////////後照鏡(右)////////////////
+		var wwR = $('#containerR').innerWidth();
+		var hhR = $('#containerR').innerHeight();  
+		rendererR = new THREE.WebGLRenderer({antialias: true});
+		rendererR.setSize(wwR, hhR);
+		rendererR.setClearColor(0x888888);
+		$("#containerR").append(rendererR.domElement);
+		
+		
+		////////////////油表////////////////
+		var wwF = $('#fuelMeter').innerWidth();
+		var hhF = $('#fuelMeter').innerHeight();  
+		rendererF = new THREE.WebGLRenderer({antialias: true});
+		rendererF.setSize(wwF, hhF);
+		rendererF.setClearColor(0x444444);
+		$("#fuelMeter").append(rendererF.domElement);
+		
+		////////////////時速表////////////////
+		var wwS = $('#speedometer').innerWidth();
+		var hhS = $('#speedometer').innerHeight();  
+		rendererS = new THREE.WebGLRenderer({antialias: true});
+		rendererS.setSize(wwS, hhS);
+		rendererS.setClearColor(0x444444);
+		$("#speedometer").append(rendererS.domElement);
+		
+		
+		////////////////將renderer東西呈現在材質上所需的東西////////////////
+		renderTarget = new THREE.WebGLRenderTarget(
+			1024, 1024, {
+				minFilter: THREE.LinearFilter,
+				magFilter: THREE.NearestFilter,
+				format: THREE.RGBFormat
+			}
+		);
+		////////////////地圖////////////////
+		sceneHUD = new THREE.Scene();
+		cameraHUD = new THREE.OrthographicCamera(-10.5, 10.5, 10.5, -10.5, -10, 10);
+		cameraHUD.position.y = 5;
+		sceneHUD.add(cameraHUD);
+		////////////////////////////////////////////////
+
+		scene = new THREE.Scene();
+		camera = new THREE.PerspectiveCamera(90, ww / hh, 1, 1000);
+		camera.position.set(0, 120, 0);
+		
+		camera3rd = new THREE.PerspectiveCamera(90, ww / hh, 1, 1000);;
+			
+		
+		cameraL = new THREE.PerspectiveCamera(90, wwL / hhL, 1, 1000);
+		sceneRTTL = new THREE.Scene();
+		cameraRTTL = new THREE.OrthographicCamera (-10,10,10,-10, 0,20);
+		let plane = new THREE.Mesh (new THREE.PlaneGeometry(20,20),
+		new THREE.MeshBasicMaterial({
+			map:renderTarget.texture, side:THREE.DoubleSide
+		}));
+		sceneRTTL.add (plane);
+		plane.rotation.y = Math.PI;
+		
+		cameraR = new THREE.PerspectiveCamera(90, wwR / hhR, 1, 1000);
+		sceneRTTR = new THREE.Scene();
+		cameraRTTR = new THREE.OrthographicCamera (-10,10,10,-10, 0,20);
+		plane = new THREE.Mesh (new THREE.PlaneGeometry(20,20),
+		new THREE.MeshBasicMaterial({map:renderTarget.texture, side:THREE.DoubleSide}));
+		sceneRTTR.add (plane);
+		plane.rotation.y = Math.PI;
+		
+		////////////////光源////////////////
+		var ambient = new THREE.AmbientLight(0xffffff);
+			scene.add(ambient);
+		  
+		var directionalLight = new THREE.DirectionalLight(0xffffff,0.6);
+		directionalLight.position.set(0, 100, 1).normalize();
+		scene.add(directionalLight);
+		
+		
+		////////////////車子一號////////////////
+		let car = new THREE.Object3D();
+		
+		var onProgress = function(xhr) {
+				if (xhr.lengthComputable) {
+					var percentComplete = xhr.loaded / xhr.total * 100;
+					console.log(Math.round(percentComplete, 2) + '% downloaded');
+				}
+		};
+		
+		var onError = function(xhr) {};
+		var mtlLoader = new THREE.MTLLoader();
+			mtlLoader.load('https://raw.githubusercontent.com/YuYeh/Web3D/master/models/redCar/materials.mtl', function(materials) {	
+				materials.preload();
+
+				var objLoader = new THREE.OBJLoader();
+				objLoader.setMaterials(materials);
+				objLoader.load('https://raw.githubusercontent.com/YuYeh/Web3D/master/models/redCar/model.obj', function(object) {
+
+					var theObject =  unitize (object, 20);
+					theObject.rotation.y = Math.PI/2.8;
+					car.add(theObject);
+					
+					//////// MATERIAL ADJUSTMENT for porsche ///////////////
+					// transparent window: double-side fix
+					object.traverse (
+						function(mesh) {
+							if (mesh instanceof THREE.Mesh) {
+								mesh.material.side = THREE.DoubleSide;
+							}
+						});
+				}, onProgress, onError);
+			});
+	
+		/*cars.push(new THREE.Mesh(new THREE.BoxGeometry(5, 4,20), new THREE.MeshLambertMaterial({
+			color: 'yellow'
+		})));*/
+		
+		console.log(cars.length);
+		cars.push(car);
+		cars[cars.length-1].position.set(radius[0] * Math.cos(0), 0, -radius[0] * Math.sin(0));
+		scene.add(cars[cars.length-1]);
+		cars[cars.length-1].visible = false;
+		carStatus.push({speed:0,fuel:100,rotation:0});
+		
+		var gridXZ = new THREE.GridHelper(200, 20, 'red', 'white');
+		scene.add(gridXZ);
+
+		let controls = new THREE.OrbitControls(camera, renderer.domElement);
+		window.addEventListener('resize', onWindowResize, false);
+		/////////////
+		theta = 0;
+		omega = 0;
+		R = 70;
+
+		fuel = 100;
+			
+		//keyboard = new KeyboardState();
+		let car2 = new THREE.Object3D();
+		mtlLoader.load('https://raw.githubusercontent.com/YuYeh/Web3D/master/resoures/blueCar/GTR.mtl', function(materials) {
+				
+				materials.preload();
+
+				var objLoader = new THREE.OBJLoader();
+				objLoader.setMaterials(materials);
+				objLoader.load('https://raw.githubusercontent.com/YuYeh/Web3D/master/resoures/blueCar/GTR.obj', function(object) {
+
+					var theObject =  unitize (object, 20);
+					theObject.rotation.y = Math.PI;
+					car2.add(theObject);
+					
+					
+
+					//////// MATERIAL ADJUSTMENT for porsche ///////////////
+					// transparent window: double-side fix
+					object.traverse (
+						function(mesh) {
+							if (mesh instanceof THREE.Mesh) {
+								mesh.material.side = THREE.DoubleSide;
+							}
+						});
+
+
+				}, onProgress, onError);
+			});
+		
+		cars.push(car2);
+		cars[cars.length-1].position.set(radius[1] * Math.cos(0), 0, -radius[1] * Math.sin(0));
+		scene.add(cars[cars.length-1]);
+		cars[cars.length-1].visible = false;
+
+		carStatus.push({speed:0,fuel:100,rotation:0});
+		
+		let light = new THREE.PointLight(0xffffff);
+		light.position.set(100, 300, 200);
+		scene.add(light);
+		
+		////////////////儀表(speedometer,fuelMeter)配置////////////////
+		sceneM = new THREE.Scene();
+		cameraF = new THREE.PerspectiveCamera(90, wwF / hhF, 1, 1000);
+		cameraF.position.z = 10
+		loader = new THREE.TextureLoader();
+		loader.setCrossOrigin ('');
+		let fuelMeterMap = loader.load( "https://i.imgur.com/4sHVHIw.png" );
+		let fuelMeterMtl = new THREE.MeshBasicMaterial({map:fuelMeterMap});
+		let fuelMeter = new THREE.Mesh(new THREE.CircleGeometry( 9.5, 64 ),fuelMeterMtl);
+		sceneM.add(fuelMeter);
+		
+		let pt = new THREE.Mesh(new THREE.PlaneGeometry(6.8,0.15),new THREE.MeshBasicMaterial({color:'red'}));
+		pt.position.set(3.4,0,1);
+		rpF = new THREE.Object3D();
+		rpF.add(pt);
+		sceneM.add(rpF);
+		rpF.rotation.z = -Math.PI/6;
+		cameraS = new THREE.PerspectiveCamera(90, wwS / hhS, 1, 1000);
+		cameraS.position.set(20,0,10);
+		
+		let speedometerMap = loader.load( "https://i.imgur.com/st0rcZm.png" );
+		let speedometerMtl = new THREE.MeshBasicMaterial({map:speedometerMap});
+		let speedometer = new THREE.Mesh(new THREE.CircleGeometry( 9.5, 64 ),speedometerMtl);
+		speedometer.position.x = 20;
+		sceneM.add(speedometer);
+		
+		let pt2 = new THREE.Mesh(new THREE.PlaneGeometry(6.8,0.15),new THREE.MeshBasicMaterial({color:'red'}));
+		pt2.position.set(3.4,0,1);
+		rpS = new THREE.Object3D();
+		rpS.add(pt2);
+		rpS.position.x = 20;
+		rpS.rotation.z = 5*Math.PI/4;
+		sceneM.add(rpS);
+		cameraS.lookAt(rpS.position);
+	}
+	
+	function unitize (object, targetSize) {  
+	
+			// find bounding box of 'object'
+			var box3 = new THREE.Box3();
+			box3.setFromObject (object);
+			var size = new THREE.Vector3();
+			size.subVectors (box3.max, box3.min);
+			var center = new THREE.Vector3();
+			center.addVectors(box3.max, box3.min).multiplyScalar (0.5);
+			
+			console.log ('center: ' + center.x + ', '+center.y + ', '+center.z );
+			console.log ('size: ' + size.x + ', ' +  size.y + ', '+size.z );
+			
+			// uniform scaling according to objSize
+			var objSize = findMax (size);
+			var scaleSet = targetSize/objSize;
+						
+			var theObject =  new THREE.Object3D();
+			theObject.add (object);
+			object.scale.set (scaleSet, scaleSet, scaleSet);
+			object.position.set (-center.x*scaleSet, -center.y*scaleSet + size.y/2*scaleSet, -center.z*scaleSet);
+			
+			return theObject;
+			
+			
+			// helper function
+			function findMax(v) {
+				if (v.x > v.y) {
+					return v.x > v.z ? v.x : v.z;
+				} else { // v.y > v.x
+					return v.y > v.z ? v.y : v.z;
+				}
+			}
+					
+		}
+	
+	function onWindowResize() {
+		var ww = $("#container").innerWidth();
+		var hh = $("#container").innerHeight();
+		camera.aspect = ww / hh;
+		camera.updateProjectionMatrix();
+		renderer.setSize(ww, hh);
+		
+		var wwL = $('#containerL').innerWidth();
+		var hhL = $('#containerL').innerHeight();
+		cameraL.aspect = wwL / hhL;
+		cameraL.updateProjectionMatrix();
+		rendererL.setSize(wwL, hhL);
+
+		var wwR = $('#containerR').innerWidth();
+		var hhR = $('#containerR').innerHeight();
+		cameraR.aspect = wwR / hhR;
+		cameraR.updateProjectionMatrix();
+		rendererR.setSize(wwR, hhR);
+		
+		var wwF = $('#fuelMeter').innerWidth();
+		var hhF = $('#fuelMeter').innerHeight();
+		cameraF.aspect = wwF / hhF;
+		cameraF.updateProjectionMatrix();
+		rendererF.setSize(wwF, hhF);
+		
+		var wwS = $('#speedometer').innerWidth();
+		var hhS = $('#speedometer').innerHeight();
+		cameraS.aspect = wwS / hhS;
+		cameraS.updateProjectionMatrix();
+		rendererS.setSize(wwS, hhS);
+	}
+
+	function countDown() {
+		
+		if(s >0) {
+			$('#prepare').text(s--);
+			setTimeout  (countDown, 1000);
+		}else if(s > 0){
+			$('#prepare').html('&nbsp;');
+			s--;
+			setTimeout  (countDown, 1000);
+		}else if(s == 0){
+			$('#prepare').text('GO!');
+			s--;
+			setTimeout  (countDown, 1000);
+		} else {
+			document.getElementById('step').disabled  = false;	
+			check = true;
+		}
+	}
+
+	function ending() {
+		if(isFinish[myID])
+			$('#prepare').text('win!');
+		else if(isFinish[otherID])
+			$('#prepare').text('Lose..');
+		if(isFinish[myID]||isFinish[otherID])
+			isEnd = true;	
+	}
+	
+	function animate() {
+		
+		//keyboard.update();
+		
+		/*if(!isEnd &&isReady[0] &&isReady[1]) {
+			if (keyboard.pressed("S")) {
+				step = true;
+				if(!isEnd) {
+					var param = { id: myID,step:true};
+					let statusStr = JSON.stringify (param);
+					socket.emit ('accelerator', statusStr);
+				} else {
+					document.getElementById('step').disabled  = true;	
+				}
+				
+			} else {
+				step = false;
+				var param = { id: myID,step:false};
+				let statusStr = JSON.stringify (param);
+				socket.emit ('accelerator', statusStr);
+			}
+				
+		}*/
+
+		requestAnimationFrame(animate);
+		render();
+		
+		dt = clock.getDelta();
+		if (engine&&check) {
+			let round = (carStatus[myID].rotation/(Math.PI*2));
+			if(round>6) {
+				var param = { id: myID,finish:true};
+				let statusStr = JSON.stringify (param);
+				socket.emit ('gameover', statusStr);
+			} else if(!isEnd)
+				$('#prepare').text('Round: ' + round.toFixed(1));
+			carStatus[myID].rotation +=carStatus[myID].speed * dt;
+			carStatus[otherID].rotation +=carStatus[otherID].speed * dt;
+			//theta += omega * dt;
+			if (myID !== undefined ) {
+				cars[myID].position.set(radius[myID] * Math.cos(carStatus[myID].rotation), 0, -radius[myID] * Math.sin(carStatus[myID].rotation));
+				cars[myID].rotation.y = carStatus[myID].rotation;
+			}
+			if (otherID !== undefined ) {
+				cars[otherID].position.set(radius[otherID] * Math.cos(carStatus[otherID].rotation), 0, -radius[otherID] * Math.sin(carStatus[otherID].rotation));
+				cars[otherID].rotation.y = carStatus[otherID].rotation;		
+			}
+			
+			if (isRun[myID]) {
+				//console.log('here')
+				carStatus[myID].fuel -= 0.3;	
+				if(carStatus[myID].speed<4)  
+					carStatus[myID].speed += 0.1;
+				
+			} else {	
+				carStatus[myID].fuel -= 0.03;
+				if(carStatus[myID].speed <0)
+					carStatus[myID].speed = 0;
+				else
+					carStatus[myID].speed -= 0.02;
+				
+			}
+			
+			if (isRun[otherID]) {
+				//console.log('here')
+				carStatus[otherID].fuel -= 0.3;
+				if(carStatus[otherID].speed<4)  
+					carStatus[otherID].speed += 0.1;			
+			} else {
+				carStatus[otherID].fuel -= 0.03;
+				if(carStatus[otherID].speed <0)
+					carStatus[otherID].speed = 0;
+				else 
+					carStatus[otherID].speed -= 0.02;
+				
+			}
+			
+			
+			rpF.rotation.z = -Math.PI/6 + (8*Math.PI/6)/100*(100-carStatus[myID].fuel);
+			rpS.rotation.z = -Math.PI/4 + (6*Math.PI/4)/4*(4-carStatus[myID].speed);
+			//console.log(rpS.rotation.z);
+			if (carStatus[myID].fuel < 0) {
+				carStatus[myID].fuel = 0;
+				rpS.rotation.z = 5*Math.PI/4;
+				engine = false;
+			}
+			if (carStatus[otherID].fuel < 0) {
+				carStatus[otherID].fuel = 0;
+				rpS.rotation.z = 5*Math.PI/4;
+			}
+			
+			
+		}
+		
+		if(myID != undefined) {
+			camera3rd.position.set(radius[myID] * Math.cos(carStatus[myID].rotation + 0.03), 7, -radius[myID] * Math.sin(carStatus[myID].rotation + 0.03));
+			camera3rd.lookAt(radius[myID]*Math.cos(carStatus[myID].rotation+0.21),5,-radius[myID]*Math.sin(carStatus[myID].rotation+0.21))
+		
+			cameraL.position.set(0.9 * radius[myID] * Math.cos(carStatus[myID].rotation + 0.1), 6, -0.9 * radius[myID] * Math.sin(carStatus[myID].rotation + 0.1));
+			cameraL.lookAt(0.9 * radius[myID] * Math.cos(carStatus[myID].rotation - 0.21), 5, -0.9 * radius[myID] * Math.sin(carStatus[myID].rotation - 0.21));
+		
+			cameraR.position.set(1.13 * radius[myID] * Math.cos(carStatus[myID].rotation + 0.07), 6, -1.13* radius[myID] * Math.sin(carStatus[myID].rotation + 0.07));
+			cameraR.lookAt(1.13* radius[myID] * Math.cos(carStatus[myID].rotation - 0.21), 5, -1.13 * radius[myID] * Math.sin(carStatus[myID].rotation - 0.21));
+		}
+	}
+
+	function render() {
+		var WW = $("#container").innerWidth();
+		var HH = $("#container").innerHeight();
+		renderer.setScissorTest(true);
+		
+		renderer.setViewport(0, 0, WW, HH);
+		renderer.setScissor(0, 0, WW, HH);
+		renderer.clear();
+		renderer.render(scene, camera3rd);
+		//renderer.render(sceneHUD, cameraHUD);
+		renderer.setViewport(0,0, (WW / 3)-0.2, HH/3);
+		camera.aspect = WW / HH;
+		camera.updateProjectionMatrix();
+		renderer.setScissor(0, 0, (WW / 3)+4, HH/3+4);
+		renderer.clear();
+		renderer.render(scene, camera);
+		renderer.setScissorTest(false);
+		
+
+		rendererL.setRenderTarget (renderTarget);
+		rendererL.render (scene, cameraL); 
+		rendererL.setRenderTarget (null);
+		rendererL.render(sceneRTTL, cameraRTTL);
+		
+		rendererR.setRenderTarget (renderTarget);
+		rendererR.render (scene, cameraR); 
+		rendererR.setRenderTarget (null);
+		rendererR.render(sceneRTTR, cameraRTTR);
+		
+		rendererF.render(sceneM, cameraF);
+		rendererS.render(sceneM, cameraS);
+	}
+
+</script>
+</body>
+
+</html>
