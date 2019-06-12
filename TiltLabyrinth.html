@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+	<style>		
+		#info {
+			position: absolute;
+			top: 30%;
+			width: 100%;
+			font-family:Monospace;
+			font-size: 50px;
+			
+			text-align: center;
+			color: #20edd5
+		}
+		body {
+			overflow: hidden;		
+		}	
+	</style>
+</head>
+
+<body> 
+	<div id="info"><br>Tilt Labyrinth<br>
+	</div>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/102/three.min.js"></script>
+	<script src="https://threejs.org/examples/js/controls/OrbitControls.js"></script>
+	<script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+	<script src="https://jyunming-chen.github.io/tutsplus/js/KeyboardState.js"></script>
+<script>
+
+
+class Ball {
+		constructor (mesh,rad = 10) {
+		
+		this.pos = new THREE.Vector3();
+		this.prevPos = new THREE.Vector3();
+		this.vel = new THREE.Vector3();
+		this.force = new THREE.Vector3();
+		this.mesh = mesh;
+		this.radius = rad;
+		this.holeIn = false;
+		this.holeInID = 0;
+		this.isUpdate = true;
+		this.check = false;
+		scene.add (this.mesh)   // add to scene when particle is created
+	  }
+	  update (dt) {
+		this.prevPos.copy(this.pos);
+		
+		
+		if(!this.holeIn) {
+		  this.vel.add (this.force.clone().multiplyScalar (dt));
+		  this.pos.add (this.vel.clone().multiplyScalar(dt));
+		  this.collidingPlanes (planes);
+		  this.collidingParticles(particles);
+		  this.collidingWalls(walls);
+		  this.collidingHoles(holes);
+		} else {
+		  if(!this.check){
+			let vToHole = holes[this.holeInID].pos.clone().sub(this.pos);
+			vToHole.y = 0;
+			let v = this.vel.length()
+		    this.vel.copy(vToHole).setLength(v);
+			this.check = true;
+		  }
+		  if(holes[this.holeInID].pos.distanceTo(this.pos)<this.radius){
+		    let v = this.vel.length();
+			this.vel.set(0,-1,0).setLength(v);
+		  }
+		  if(this.pos.y > -0.5*this.radius)
+			this.pos.add (this.vel.clone().multiplyScalar(dt));
+		  else{
+		    this.pos.setY(-0.5*this.radius);
+			this.isUpdate = false;
+		  }
+			
+		}
+		
+		this.mesh.position.copy (this.pos)
+	  }
+
+		collidingPlanes () {
+			if(this.pos.x>200-this.radius){
+				this.pos.setX (200-this.radius);
+				this.vel.setX (0);
+			}else if (this.pos.x <-200+this.radius) {
+				this.pos.setX (-200+this.radius);
+				this.vel.setX (0);
+			}
+			if (this.pos.z > 200-this.radius) {
+				this.pos.setZ (200-this.radius);
+				this.vel.setZ (0);
+			} else if (this.pos.z < -200+this.radius) {
+				this.pos.setZ (-200+this.radius);
+				this.vel.setZ (0);
+			}	
+		}
+		collidingParticles(particles) {
+		const EPS = 1e-3;
+		for (let i = 0; i < particles.length; i++) {
+		  let particle = particles[i];
+			let distance = this.pos.distanceTo(particle.pos);
+		  //console.log(this.vel)
+
+		  if(distance < this.radius +particle.radius&& distance != 0&&particles[i].isUpdate) {
+			 let p1 = this.pos.clone();
+			 let p2 = particle.pos.clone();
+			 let n = p1.clone().sub(p2).normalize();
+			 let v = this.vel.clone().sub(particle.vel);
+			
+			 this.vel.sub (n.clone().multiplyScalar (v.dot(n))).setY(0);
+			 particle.vel.add(n.clone().multiplyScalar (v.dot(n))).setY(0);
+			 let vv = p2.clone().sub(p1);
+			 //console.log(vv)
+			let overlap = (this.radius + particle.radius) - vv.length();
+			vv.normalize();
+			this.pos.copy(this.prevPos);
+			 n.setLength(4);
+			this.pos.add ( vv.clone().multiplyScalar(-overlap/2));
+			particle.pos.add ( vv.clone().multiplyScalar(overlap/2));
+
+		  }
+		}
+	  }
+	  
+		collidingWalls(walls){
+			const EPS = 1e-3
+			const CR = 0.98
+			for (let i = 0; i < walls.length; i++) {
+			  let wall = walls[i]
+			  let pointL = this.pos.clone().sub (wall.ptOnPlL);
+			  let pointR = this.pos.clone().sub (wall.ptOnPlR);
+			  let pointF = this.pos.clone().sub (wall.ptOnPlF);
+			  let pointB = this.pos.clone().sub (wall.ptOnPlB);
+			  //console.log(pointR)
+			  //左邊
+			  if ( pointL.x < 0 &&  pointL.dot(wall.normalL) < EPS + this.radius && pointL.projectOnPlane (wall.normalL).length() < wall.width/2 + this.radius + EPS) {
+				this.pos.setX(wall.pos.x  - wall.length/2 - this.radius );
+				this.vel.setX (0);
+			  } 
+			  //右邊
+			  if ( pointR.x > EPS && pointR.dot(wall.normalR) < EPS + this.radius&& pointR.projectOnPlane (wall.normalR).length() < wall.width/2  + this.radius + EPS) {
+				this.pos.setX(wall.pos.x + wall.length/2 + this.radius );
+				this.vel.setX (0);
+			  } 
+			  //前面
+			  if (pointF.z > EPS &&pointF.dot(wall.normalF) < EPS + this.radius && pointF.projectOnPlane (wall.normalF).length() < wall.length/2 + this.radius + EPS) {
+				this.pos.setZ (wall.pos.z + wall.width/2 + this.radius );
+				this.vel.setZ (0);
+			  }
+			  //後面
+			  if (pointB.z < 0&& pointB.dot(wall.normalB) < EPS + this.radius && pointB.projectOnPlane (wall.normalB).length() < wall.length/2  + this.radius + EPS) {
+				this.pos.setZ (wall.pos.z - wall.width/2 - this.radius );
+				this.vel.setZ (0);
+			  }
+			}
+		  }
+		  collidingHoles(holes){
+			for(var i = 0; i< holes.length; i++) {
+				let distance = this.pos.distanceTo(holes[i].mesh.position);
+				if(distance < (this.radius + holes[i].radius)*0.8&&!holes[i].ballIn){
+					this.holeIn = true;
+					this.holeInID = i;
+					holes[i].ballIn = true;
+					break;
+				}
+				
+			}
+		  }
+	}
+
+class Plane {
+	constructor (localPointOnPlane, localNormal, mesh) {
+    this.localPtOnPl = localPointOnPlane.clone();
+	this.localNormal = localNormal.clone();
+    this.mesh = mesh;  // the graphics representation
+    scene.add (mesh)
+  }
+  update () {
+  	this.mesh.updateMatrixWorld() // important!
+  	this.ptOnPl = this.mesh.localToWorld (this.localPtOnPl.clone());
+    let normalMat = new THREE.Matrix3().getNormalMatrix (this.mesh.matrixWorld);  
+    this.normal = this.localNormal.clone().applyMatrix3 (normalMat).normalize()
+  }
+}
+
+class Wall {
+	constructor (length, width, mesh) {
+    this.length = length;
+    this.width = width;
+    this.pos = mesh.position;
+    this.localPtOnPlL = new THREE.Vector3(-length/2, 0, 0);
+    this.localPtOnPlR = new THREE.Vector3( length/2, 0, 0);
+    this.localPtOnPlF = new THREE.Vector3( 0, 0, width/2);
+    this.localPtOnPlB = new THREE.Vector3( 0, 0, -width/2);
+	this.localNormalL = new THREE.Vector3(-1, 0, 0);
+    this.localNormalR = new THREE.Vector3( 1, 0, 0);
+    this.localNormalF = new THREE.Vector3( 0, 0, 1);
+    this.localNormalB = new THREE.Vector3( 0, 0,-1);
+    this.mesh = mesh;  // the graphics representation
+    scene.add (mesh)
+  }
+  update () {
+  	this.mesh.updateMatrixWorld() // important!
+  	this.ptOnPlL = this.mesh.localToWorld (this.localPtOnPlL.clone());
+    this.ptOnPlR = this.mesh.localToWorld (this.localPtOnPlR.clone());
+    this.ptOnPlF = this.mesh.localToWorld (this.localPtOnPlF.clone());
+    this.ptOnPlB = this.mesh.localToWorld (this.localPtOnPlB.clone());
+    let normalMat = new THREE.Matrix3().getNormalMatrix (this.mesh.matrixWorld);  
+    this.normalL = this.localNormalL.clone().applyMatrix3 (normalMat).normalize();
+    this.normalR = this.localNormalR.clone().applyMatrix3 (normalMat).normalize()
+    this.normalF = this.localNormalF.clone().applyMatrix3 (normalMat).normalize()
+    this.normalB = this.localNormalB.clone().applyMatrix3 (normalMat).normalize()
+  }
+}
+
+class Hole {
+  constructor(radius,mesh,x,z){
+	this.radius = radius;
+	this.mesh = mesh;
+	this.ballIn = false;
+	//this.type = type;
+	this.mesh.position.set(x,1,z);
+	this.mesh.rotation.x = -Math.PI/2;
+	this.pos = mesh.position;
+	scene.add(this.mesh);
+	//console.log(this.mesh.position);
+  }
+	
+}
+
+///////////////////////////////////////////////////////////////////////
+var camera, scene, renderer, light;
+var ball,alpha = 1,type = false;
+var planes =[];
+var particles = [];
+var walls = [], holes = [];
+var type = 1;
+var variety = 1;
+var loader;
+var beta,gamma;
+var gravity = new THREE.Vector3();
+var keyboard = new KeyboardState();
+
+init();
+animate();
+
+function randomPos(radius) {
+	return new THREE.Vector3( 95-radiusradius+5+Math.random()*(95-radius)*2,0, Math.random())
+}
+
+function init() {
+
+  scene = new THREE.Scene();
+  camera = new THREE.OrthographicCamera(-210, 210, 210, -210, 10, 2000);
+  //camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 1, 6000);
+  camera.position.set(0,1500,0);
+  camera.up.set(0, 0, -1);
+  camera.lookAt(new THREE.Vector3(0, 0, 0));
+
+	
+  var ambientLight = new THREE.AmbientLight(0x222222); // soft white light
+  scene.add(ambientLight);
+  
+  light = new THREE.PointLight(0xffffff,1);
+  light.position.set(200, 700, 0);
+  scene.add(light);
+  
+  var gridXZ = new THREE.GridHelper(200, 20, 'red', 'white');
+  //scene.add(gridXZ);
+  var floor = new THREE.Mesh (new THREE.PlaneGeometry (400,400), new THREE.MeshPhongMaterial({
+  color:0x585858,
+  side:THREE.DoubleSide}))
+  floor.rotation.x = -Math.PI/2
+  floor.position.y = -0.1;
+  scene.add (floor)
+
+  renderer = new THREE.WebGLRenderer({antialias: true});
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setClearColor(0x87cefa);
+
+  //let controls = new THREE.OrbitControls(camera, renderer.domElement);
+
+  document.body.appendChild(renderer.domElement);
+  ///////////////////////////////////////////////////////////
+
+
+
+	let plane, wall
+  wall = new THREE.Mesh ( new THREE.BoxGeometry (408, 60, 4), new THREE.MeshPhongMaterial({
+    color:0xf8f8f8,
+  	transparent: true,
+    opacity:0.2
+  }) )
+  scene.add (wall)
+  wall.position.set(0,30,202)
+	plane = new Plane (new THREE.Vector3(0,0,-5), new THREE.Vector3(0,0,-1), wall)
+  plane.update()
+  planes.push (plane)
+
+  wall = new THREE.Mesh ( new THREE.BoxGeometry (408, 60, 4), new THREE.MeshPhongMaterial({
+    color:0xf8f8f8,
+  	transparent: true,
+    opacity:0.2
+  }) )
+  scene.add (wall)
+  wall.position.set(0,30,-202)
+  plane = new Plane (new THREE.Vector3(0,0,5), new THREE.Vector3(0,0,1), wall.clone())
+  plane.update()
+  planes.push (plane)
+  
+   wall = new THREE.Mesh ( new THREE.BoxGeometry (4, 60, 400), new THREE.MeshPhongMaterial({
+    color:0xf8f8f8,
+  	transparent: true,
+    opacity:0.2
+  }) )
+  scene.add (wall)
+  wall.position.set(-202,30,0)
+  plane = new Plane (new THREE.Vector3(4,0,0), new THREE.Vector3(1,0,0), wall.clone())
+  plane.update()
+  planes.push (plane)
+  
+   wall = new THREE.Mesh ( new THREE.BoxGeometry (4, 60, 400), new THREE.MeshPhongMaterial({
+    color:0xcccccc,
+  	transparent: true,
+    opacity:0.2
+  }) )
+  scene.add (wall)
+  wall.position.set(202,30,0)
+  plane = new Plane (new THREE.Vector3(-4,0,0), new THREE.Vector3(-1,0,0), wall.clone())
+  plane.update()
+  planes.push (plane)
+
+  loader = new THREE.TextureLoader();
+  loader.setCrossOrigin ('');
+  let wallMap = loader.load( "https://i.imgur.com/anBP6AB.jpg" );
+  wallMap.wrapS = THREE.RepeatWrapping;
+  wallMap.wrapT = THREE.RepeatWrapping;
+  wallMap.repeat.set(8, 2);
+  var material = new THREE.MeshPhongMaterial({
+	map: wallMap,
+  	transparent: true,
+    opacity:0.9});
+	
+  wall = new THREE.Mesh ( new THREE.BoxGeometry (100, 60, 20), material);
+  wall.position.set(10,30,-100);
+  let wall2 = new Wall(100,20,wall.clone());
+  wall2.update();
+  walls.push(wall2);
+  wall = new THREE.Mesh ( new THREE.BoxGeometry (20, 60, 90), material)
+  wall.position.set(110,30,-155);
+
+  wall2 = new Wall(20,90,wall.clone());
+  wall2.update();
+  walls.push(wall2);
+  
+  wall = new THREE.Mesh ( new THREE.BoxGeometry (100, 60, 20), material);
+  wall.position.set(10,30,0);
+  
+  wall2 = new Wall(100,20,wall.clone());
+  wall2.update();
+  walls.push(wall2);
+  
+  wall = new THREE.Mesh ( new THREE.BoxGeometry (20, 60, 80), material);
+  wall.position.set(50,30,50);
+  
+  wall2 = new Wall(20,100,wall.clone());
+  wall2.update();
+  walls.push(wall2);
+  
+  wall = new THREE.Mesh ( new THREE.BoxGeometry (160, 60, 20), material);
+  wall.position.set(120,30,100);
+  
+  wall2 = new Wall(160,20,wall.clone());
+  wall2.update();
+  walls.push(wall2);
+  
+  wall = new THREE.Mesh ( new THREE.BoxGeometry (100, 60, 20), material);
+  wall.position.set(-70,30,100);
+  
+  wall2 = new Wall(120,20,wall.clone());
+  wall2.update();
+  walls.push(wall2);
+  
+  wall = new THREE.Mesh ( new THREE.BoxGeometry (20, 60, 90), material);
+  wall.position.set(-110,30,155);
+  
+  wall2 = new Wall(20,90,wall.clone());
+  wall2.update();
+  walls.push(wall2);
+  
+  wall = new THREE.Mesh ( new THREE.BoxGeometry (20, 60, 90), material);
+  wall.position.set(-100,30,-10);
+  
+  wall2 = new Wall(20,90,wall.clone());
+  wall2.update();
+  walls.push(wall2);
+  
+  
+  
+  let holeMesh = new THREE.Mesh(new THREE.CircleGeometry(23,64),new THREE.MeshPhongMaterial({color:0x15b203}));
+  holes.push(new Hole(23,holeMesh,10,-133));
+  
+  holeMesh = new THREE.Mesh(new THREE.CircleGeometry(23,64),new THREE.MeshPhongMaterial({color:0x000000}));
+  holes.push(new Hole(23,holeMesh,177,133));
+  
+  holeMesh = new THREE.Mesh(new THREE.CircleGeometry(23,64),new THREE.MeshPhongMaterial({color:0x000000}));
+  holes.push(new Hole(23,holeMesh,83,67));
+  
+  holeMesh = new THREE.Mesh(new THREE.CircleGeometry(23,64),new THREE.MeshPhongMaterial({color:0x15b203}));
+  holes.push(new Hole(23,holeMesh,-73,177));
+  
+  holeMesh = new THREE.Mesh(new THREE.CircleGeometry(23,64),new THREE.MeshPhongMaterial({color:0x000000}));
+  holes.push(new Hole(23,holeMesh,-177,177));
+  
+  holeMesh = new THREE.Mesh(new THREE.CircleGeometry(23,64),new THREE.MeshPhongMaterial({color:0x000000}));
+  holes.push(new Hole(23,holeMesh,-67,-10));
+  
+  holeMesh = new THREE.Mesh(new THREE.CircleGeometry(23,64),new THREE.MeshPhongMaterial({color:0x000000}));
+  holes.push(new Hole(23,holeMesh,-67,-177));
+  
+  holeMesh = new THREE.Mesh(new THREE.CircleGeometry(23,64),new THREE.MeshPhongMaterial({color:0x000000}));
+  holes.push(new Hole(23,holeMesh,177,-177));
+  
+  let disk, ball;
+
+  for(let i = 0; i < 2;i++) {
+    let geometry = new THREE.SphereGeometry (20,64, 64);
+    let material =  new THREE.MeshPhongMaterial({
+        color: 0xff1234,
+        specular: 0x444444,
+        shininess: 80
+    });
+
+    disk = new THREE.Mesh (geometry,material );
+    ball = new Ball (disk,20);
+
+    let check = false;
+
+    while(!check) {
+      var j=0;
+      ball.pos.set (  Math.random() * (380-ball.radius)-(180-ball.radius) ,20,  Math.random() * (380-ball.radius)-(180-ball.radius))
+      
+	  particles.forEach(function(otherball){
+		if(ball.pos.distanceTo(otherball.pos) > ball.radius + otherball.radius)
+			j++;
+	  });
+	  
+	  holes.forEach(function(hole){
+		if(ball.pos.distanceTo(hole.pos)> ball.radius + hole.radius/2+4)
+			j++;
+	  });
+	  for(let k =0; k<walls.length;k++){
+		if(ball.pos.x<walls[k].pos.x+walls[k].length/2+ball.radius&& ball.pos.x>walls[k].pos.x-walls[k].length/2 - ball.radius)
+			if(ball.pos.z<walls[k].pos.z+walls[k].width/2+ball.radius&& ball.pos.z>walls[k].pos.z-walls[k].width/2 - ball.radius)
+				break;
+		j++;
+	  } 
+      if(j == (particles.length + holes.length + walls.length)) check = true;
+    }
+    particles.push (ball)
+  }
+  
+  window.addEventListener('resize', onWindowResize, false);
+  
+  window.addEventListener('deviceorientation', function(e) {
+		gamma = e.gamma;
+		beta = e.beta;
+		console.log (gamma +', ' + beta + ', ' + e.alpha);
+  });
+
+}
+
+function onWindowResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+function Contact(ball) {
+	ball.pos.setY(20); // ball position correction
+	let normalW = new THREE.Vector3(0, 1, 0); // local plane normal
+		
+	ball.force.copy (gravity.projectOnPlane (normalW));
+    
+}
+
+
+function animate() {
+	var  a = new THREE.Euler(0, 0, 0, 'XYZ');
+	particles.forEach (function(ball) {
+	if(!ball.holeIn)
+		a = new THREE.Euler(-beta*Math.PI/180, 0, gamma*Math.PI/180, 'XYZ');
+	});
+    gravity = new THREE.Vector3(0, -180, 0);
+    gravity.applyEuler(a);
+
+  particles.forEach (function(ball) {
+	if(!ball.holeIn){
+		Contact(ball);  
+	}
+	if(ball.isUpdate)
+		ball.update(0.05);
+		
+  });
+
+  requestAnimationFrame(animate);
+  render();
+  
+}
+
+function render() {
+  renderer.render(scene, camera);
+}
+
+window.focus();
+</script>
+</body>
+
+</html>
