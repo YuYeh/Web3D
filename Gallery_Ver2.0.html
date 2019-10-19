@@ -554,7 +554,7 @@ function buildPainting() {
     ////////////////////哈利波特////////////////////
 	let potterTexture = loader.load( "images/HarryPotter.jpg");
 	let potter = buildArchitrave(387*0.4, 258*0.4, potterTexture);
-	potter.rotation.y = Math.PI;
+	potter.rotation.set(Math.PI,Math.PI,0);
 	potter.position.set(607,200, -449);
 	potter.name = 'potter';
 	pickables.push (potter);
@@ -563,6 +563,7 @@ function buildPainting() {
 	////////////////////妙麗////////////////////
 	let hermioneTexture = loader.load( "images/Hermione.jpg");
 	let hermione = buildArchitrave(250*0.5, 276*0.5, hermioneTexture);
+	hermione.rotation.x = Math.PI;
 	hermione.position.set(-607,200, 449);
 	hermione.name = 'hermione';
 	pickables.push (hermione);
@@ -571,7 +572,7 @@ function buildPainting() {
 	////////////////////榮恩////////////////////
 	let ronTexture = loader.load( "images/Ron.jpg");
     let ron = buildArchitrave(299*0.3, 400*0.3, ronTexture);
-	ron.rotation.y = Math.PI/2;
+	ron.rotation.set(Math.PI,Math.PI/2,0);
 	ron.position.set(449,200, -300);
 	ron.name = 'ron';
 	pickables.push (ron);
@@ -580,7 +581,7 @@ function buildPainting() {
 	////////////////////佛地魔////////////////////
 	let voldemortTexture = loader.load( "images/Voldemort.jpg");
     let voldemort = buildArchitrave(375*0.3, 265*0.3, voldemortTexture);
-	voldemort.rotation.y = Math.PI/2;
+	voldemort.rotation.set(Math.PI,Math.PI/2,0);
 	voldemort.position.set(449,200, 300);
 	voldemort.name = 'voldemort';
 	pickables.push (voldemort);
@@ -589,7 +590,7 @@ function buildPainting() {
 	////////////////////鄧不利多////////////////////
 	let dumbledoreTexture = loader.load( "images/Dumbledore.jpg");
     let dumbledore = buildArchitrave(2000*0.05, 2669*0.05, dumbledoreTexture);
-	dumbledore.rotation.y = -Math.PI/2;
+	dumbledore.rotation.set(Math.PI,-Math.PI/2,0);
 	dumbledore.position.set(-449,200, 300);
 	dumbledore.name = 'dumbledore';
 	pickables.push (dumbledore);
@@ -598,7 +599,7 @@ function buildPainting() {
 	////////////////////金妮////////////////////
 	let ginnyTexture = loader.load( "images/Ginny.jpg");
     let ginny  = buildArchitrave(375*0.3, 500*0.3, ginnyTexture);
-	ginny.rotation.y = -Math.PI/2;
+	ginny.rotation.set(Math.PI,-Math.PI/2,0);
 	ginny.position.set(-449,200, -300);
 	ginny.name = 'ginny';
 	pickables.push (ginny);
