@@ -10,9 +10,9 @@
 
  * ✅ [Harry Potter](https://yuyeh.github.io/Web3D/Gallery_Ver2.0.html)
 
- * ✅ <a href="https://yuyeh.github.io/Web3D/RaceByServer.zip" download="CircleRectCollisionByServer.zip">Node.js, Shelljs, Native Methods [zip]</a>
+ * ✅ <a href="https://yuyeh.github.io/Web3D/CircleRectCollisionByServer.zip" download="CircleRectCollisionByServer.zip">Node.js, Shelljs, Native Methods [zip]</a>
 
- * ✅ <a href="https://yuyeh.github.io/Web3D/CircleRectCollisionByServer.zip" download="RaceByServer.zip">Race by server (socket.io) [zip]</a>
+ * ✅ <a href="https://yuyeh.github.io/Web3D/RaceByServer.zip" download="RaceByServer.zip">Race by server (socket.io) [zip]</a>
 
  * ✅ [Tilt Labyrinth](https://yuyeh.github.io/Web3D/TiltLabyrinth.html)
 
