@@ -1,5 +1,5 @@
-# 以下為Game Programming Homework 的解說
-   ##### 可以點選 [這裡](https://yuyeh.github.io/GameProgramming/index.html) 跳轉到Homework預覽頁面。
+# 以下為Web 3D Homework 的解說
+   ##### 可以點選 [這裡](https://yuyeh.github.io/Web3D/index.html) 跳轉到Homework預覽頁面。
    ###### 如有任何問題，請發送信件到此信箱: a080044976@gmail.com
 
    各項狀態:&nbsp;&nbsp;✅:已完成&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 🔄:待補中
